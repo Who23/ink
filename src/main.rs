@@ -1,5 +1,6 @@
-use std::fs::File;
+use std::fs::{File};
 use std::io::{BufReader, BufRead};
+use std::path::Path;
 
 use ink::diff::Diff;
 
@@ -13,6 +14,9 @@ fn main() {
     let a: Vec<String> = a.lines().collect::<Result<_, _>>().unwrap();
     let b: Vec<String> = b.lines().collect::<Result<_, _>>().unwrap();
 
-    println!("{}", Diff::from(a, b).edit_script());
-}
+    let diff = Diff::from(a, b);
 
+    let p = Path::new("testing/b.txt");
+    diff.rollback(&p).unwrap();
+
+}

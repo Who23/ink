@@ -1,10 +1,13 @@
 //! Tools for creating diffs, done through the `Diff` struct
+use std::io::{self, BufRead, Write, BufWriter, BufReader};
+use std::fs::{self, File};
+use std::path::Path;
 
 /// The type of edit - Insertion or Deletion
 #[derive(PartialEq)]
 enum EditOp {
     Insert,
-    Delete
+    Delete,
 }
 
 /// One section of a diff which involves adding or removing one
@@ -24,8 +27,8 @@ impl Edit {
     /// though this is not an 'ed' compatible edit script
     fn to_edit_script(&self) -> String {
         let op = match self.operation {
-            EditOp::Insert => "a",
-            EditOp::Delete => "d"
+            EditOp::Insert  => "a",
+            EditOp::Delete  => "d"
         };
 
         format!("{},{}{}\n{}.\n", self.line_start, self.line_end, op, self.content)
@@ -44,7 +47,6 @@ impl Diff {
     /// Currently this not efficient in terms of space.
     /// This will probably be replaced by it's linear space version later.
     pub fn from(a: Vec<String>, b: Vec<String>) -> Diff {
-
         let trace = explore_paths(&a, &b);
         let path = find_path(trace, a.len(), b.len());
         let edits = create_edits(path, a, b);
@@ -61,6 +63,178 @@ impl Diff {
                   .map(|e| e.to_edit_script())
                   .collect::<Vec<String>>()
                   .join("")
+    }
+
+
+    /// Applies a series of edits to a file
+    /// Goes line by line through the file to add edits in a tmp file, 
+    /// then overwriting the normal file with the tmp file.
+    fn apply_edits(edits: &Vec<Edit>, file_path: &Path) -> io::Result<()> {
+        let tmp_path = file_path.with_extension(".tmp");
+
+        // check if there are any edits
+        if edits.len() == 0 {
+            return Ok(())
+        }
+
+        // open up the file to read and a tmp file to write to
+        let file = BufReader::new(File::open(file_path)?);
+        let mut tmp = BufWriter::new(File::create(&tmp_path)?);
+
+        let mut lines_to_delete = 0;    // if deleting lines, how many are left to delete
+        let mut current_edit_index = 0;   // current edit we're on
+        let mut current_edit = &edits[current_edit_index];   
+        let mut last_edit = &edits[current_edit_index];   // the previous edit
+        let mut next_edit = &edits[current_edit_index + 1];    // the next edit
+
+        for (line_number, line) in file.lines().enumerate() {
+            let line = line?;
+
+            // firstly, if there are lines to delete, 'delete'
+            // the line by not writing it to the tmp file & going to the next
+            if lines_to_delete > 0 {
+                lines_to_delete -= 1;
+                continue;
+            }
+
+            current_edit = &edits[current_edit_index];
+
+            // check if this line has an edit on it (edits are always ordered by line #)
+            if line_number == current_edit.line_start {
+                match current_edit.operation {
+                    EditOp::Insert => {
+                        // write the inserted lines into the tmp file
+                        tmp.write(current_edit.content.as_bytes())?;
+
+                        // decides whether to write the current line of the normal file into the tmp file
+                        // if this is not the last edit & the next edit would delete this line
+                        // don't write it
+                        if current_edit_index + 1 != edits.len() {
+                            next_edit = &edits[current_edit_index + 1];
+
+                            if !(next_edit.operation == EditOp::Delete && current_edit.line_end + 1 == next_edit.line_start) {
+                                tmp.write((line + "\n").as_bytes())?;
+                            }
+
+                        } else {
+                            tmp.write((line + "\n").as_bytes())?;
+                        }
+
+                        last_edit = current_edit;
+                    },
+                    EditOp::Delete => {
+                        // how many lines we should be deleting? if the end == the start, then we
+                        // only delete this line (sets to 0)
+                        lines_to_delete = current_edit.line_end - current_edit.line_start;
+
+                        // checks if we write the current line into the tmp file
+                        // checks if the last edit was an insert that already deleted the line that
+                        // we needed to delete, so we should write this next line into the tmp file
+                        if last_edit.operation == EditOp::Insert && last_edit.line_end + 1 == current_edit.line_start {
+                            tmp.write((line + "\n").as_bytes())?;
+
+                            if lines_to_delete > 0 {
+                                lines_to_delete -= 1;
+                            }
+                        }
+
+                        last_edit = current_edit;
+                    }
+                }
+                current_edit_index += 1;
+            } else {
+                // if there wasn't an edit, write the current line
+                tmp.write((line + "\n").as_bytes())?;
+            }
+        }
+
+        // there might be a insert edit left over.
+        // Add that to the tmp file
+        if current_edit_index == edits.len() - 1 {
+            current_edit = &edits[current_edit_index];
+            if current_edit.operation == EditOp::Insert {
+                tmp.write(current_edit.content.as_bytes())?;
+            } else {
+                panic!("the last one is a delete??");
+            }
+            
+        } else if current_edit_index != edits.len() {
+            panic!("&edits left after??");
+        }
+
+        // drop the writer to the tmp file
+        std::mem::drop(tmp);
+
+        // overwrite the main file with the tmp file
+        fs::rename(tmp_path, file_path)?;
+
+        Ok(())
+    }
+
+    /// Apply a diff to a file
+    pub fn apply(&self, file_path: &Path) -> io::Result<()> {
+        Diff::apply_edits(&self.edits, file_path)
+    }
+
+    /// Rollback a diff on a file by applying the reverse diff
+    pub fn rollback(&self, file_path: &Path) -> io::Result<()> {
+        let mut rollback_edits = vec![];
+
+        // the line offset, because inserting/deleting line numbers are based on
+        // the unmodified file.
+        let mut offset: isize = 0;
+
+        for edit in &self.edits {
+            let new_edit = match edit.operation {
+                // change the insert to a delete, using the length of the content
+                // for the line numbers while adding the offset as well.
+                EditOp::Insert => {
+                    let num_lines = edit.content.lines().count();
+
+                    let line_start = if offset < 0 {
+                        edit.line_start - offset.abs() as usize
+                    } else {
+                        edit.line_start + offset.abs() as usize
+                    };
+
+                    if num_lines != 1 {
+                        offset += num_lines as isize;
+                    }
+
+                    Edit {
+                        operation: EditOp::Delete,
+                        line_start,
+                        line_end: num_lines + line_start - 1,
+                        content: edit.content.clone()
+                    }
+                },
+                // same as above for the delete
+                EditOp::Delete => {
+                    let num_lines = edit.content.lines().count();
+
+                    let line_start = if offset < 0 {
+                        edit.line_start - offset.abs() as usize
+                    } else {
+                        edit.line_start + offset.abs() as usize
+                    };
+
+                    if num_lines != 1 {
+                        offset -= num_lines as isize;
+                    }
+
+                    Edit {
+                        operation: EditOp::Insert,
+                        line_start,
+                        line_end: line_start + num_lines - 1,
+                        content: edit.content.clone()
+                    }
+                }
+            };
+
+            rollback_edits.push(new_edit);
+        }
+
+        Diff::apply_edits(&rollback_edits, file_path)
     }
 }
 
@@ -89,16 +263,17 @@ fn create_edits(path: Vec<(usize, usize)>, a: Vec<String>, b: Vec<String>) -> Ve
         if let Some(edit_type) = edit_type {
             // get what we are inserting/deleting and where
             // insert --> coming from the 2nd string, opposite for delete
+            // the line number is always from the first file
             let (line_idx, lines) = match edit_type {
-                EditOp::Insert => { (y, &b[y]) },
+                EditOp::Insert => { (x, &b[y]) },
                 EditOp::Delete => { (x, &a[x]) }
             };
 
             // If the last edit was of the same type, expand that edit
             // instead of creaing a new one. Otherwise add the new edit to the diff
             if let Some(edit) = diff.last_mut() {
-                if edit.operation == edit_type {
-                    edit.line_end = line_idx;
+                if edit.operation == edit_type && (edit.line_end + 1) >= line_idx {
+                    edit.line_end = edit.line_end + 1;
                     edit.content.push_str(lines);
                     edit.content.push_str("\n");
                 } else {
