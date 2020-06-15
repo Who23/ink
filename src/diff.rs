@@ -2,6 +2,7 @@
 use std::io::{self, BufRead, Write, BufWriter, BufReader};
 use std::fs::{self, File};
 use std::path::Path;
+use std::error::Error;
 
 /// The type of edit - Insertion or Deletion
 #[derive(PartialEq)]
@@ -31,7 +32,7 @@ impl Edit {
             EditOp::Delete  => "d"
         };
 
-        format!("{},{}{}\n{}.\n", self.line_start, self.line_end, op, self.content)
+        format!("{},{},{}\n{}", self.line_start, self.line_end, op, self.content)
     }
 }
 
@@ -44,8 +45,6 @@ pub struct Diff {
 
 impl Diff {
     /// Create a diff from two files using the Myers' Diff Algorithm.
-    /// Currently this not efficient in terms of space.
-    /// This will probably be replaced by it's linear space version later.
     pub fn from(a: Vec<String>, b: Vec<String>) -> Diff {
         let trace = explore_paths(&a, &b);
         let path = find_path(trace, a.len(), b.len());
@@ -56,7 +55,65 @@ impl Diff {
         }
     }
 
-    /// Create an 'edit script' for the diff.
+    /// Deserialize an edit script to create a diff
+    pub fn from_edit_script(edit_script: Vec<String>) -> Result<Diff, Box<dyn Error>> {
+        let mut edits = Vec::new(); 
+
+        // store what will be in the edit through the loop
+        let mut line_start = 0;
+        let mut line_end = 0;
+        let mut content = String::new();
+        let mut content_lines = 0;
+        let mut operation = EditOp::Insert;
+
+        for line in edit_script {
+            // if we're on a content line, add it to the buffer
+            if content_lines > 0 {
+                content_lines -= 1;
+                content.push_str(&(line + "\n"));
+                continue;
+            }
+
+            // means we have gotten through the lines of content
+            // (last part of the edit). add the edit to the vector
+            if !content.is_empty() {
+                edits.push(Edit {
+                    operation,
+                    line_start,
+                    line_end,
+                    content: content.clone(),
+                });
+                content.clear();
+            }
+
+            // get the starting line #, ending line #, & type of edit
+            let components: Vec<&str> = line.split(",").collect();
+            line_start = components[0].parse::<usize>()?;
+            line_end = components[1].parse::<usize>()?;
+            operation = match components[2] {
+                "a" => Ok(EditOp::Insert),
+                "d" => Ok(EditOp::Delete),
+                 _  => Err("invalid edit script")
+            }?;
+
+            // find how many lines of content there will be
+            content_lines = line_end - line_start + 1;
+        }
+
+        // add the last edit
+        edits.push(Edit {
+            operation,
+            line_start,
+            line_end,
+            content: content.clone(),
+        });
+
+        Ok(Diff {
+            edits
+        })
+    }
+
+    /// Serialize an 'edit script' for the diff.
     /// The changes in the edit script are thought to happen simultaneously.
     pub fn edit_script(&self) -> String {
         self.edits.iter()

@@ -15,8 +15,10 @@ fn main() {
     let b: Vec<String> = b.lines().collect::<Result<_, _>>().unwrap();
 
     let diff = Diff::from(a, b);
+    let es: Vec<String> = diff.edit_script().lines().map(|s| s.to_owned()).collect();
+    let s_diff = Diff::from_edit_script(es).unwrap();
 
-    let p = Path::new("testing/b.txt");
-    diff.rollback(&p).unwrap();
-
+    println!("{}", diff.edit_script());
+    println!("\n\n");
+    println!("{}", s_diff.edit_script());
 }
