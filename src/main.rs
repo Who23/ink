@@ -1,5 +1,5 @@
-use std::fs::{File};
-use std::io::{BufReader, BufRead};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use ink::diff::Diff;
