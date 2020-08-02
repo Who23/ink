@@ -1,24 +1,71 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader, BufWriter, Write,
+              Error, ErrorKind,
+              self};
+use std::path::{Path, PathBuf};
+use std::boxed::Box;
+use std::env;
 
 use ink::diff::Diff;
+use ink::InkError;
+
 
 fn main() {
-    let a = File::open("testing/a.txt").unwrap();
-    let b = File::open("testing/b.txt").unwrap();
-
-    let a = BufReader::new(a);
-    let b = BufReader::new(b);
-
-    let a: Vec<String> = a.lines().collect::<Result<_, _>>().unwrap();
-    let b: Vec<String> = b.lines().collect::<Result<_, _>>().unwrap();
-
-    let diff = Diff::from(a, b);
-    let es: Vec<String> = diff.edit_script().lines().map(|s| s.to_owned()).collect();
-    let s_diff = Diff::from_edit_script(es).unwrap();
-
-    println!("{}", diff.edit_script());
-    println!("\n\n");
-    println!("{}", s_diff.edit_script());
+    // fs::remove_dir_all("./.ink").unwrap();
+    init().unwrap();
 }
+
+fn init() -> Result<(), io::Error> {
+    // create ./.ink dir
+    let ink_dir = env::current_dir()?.join(".ink");
+    fs::create_dir(&ink_dir)?;
+
+    File::create(ink_dir.join("log"))?;
+
+    Ok(())
+}
+
+/// Find the location of the .ink directory
+/// For now, this returns the current directory + .ink but 
+/// will check in higher directories
+fn get_ink_dir() -> Result<PathBuf, InkError> {
+    let ink_dir = env::current_dir()?.join(".ink");
+    if ink_dir.exists() {
+        Ok(ink_dir)
+    } else {
+        Err(InkError::Uninitialized)
+    }
+}
+
+
+fn find_paths(dir: &Path, v: &mut Vec<PathBuf>) -> io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                find_paths(&path, v)?;
+            } else {
+                Vec::push(v, path);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Creates a new directory at target and copies all subdirectories from source
+fn copy_subdirs(source: &Path, target: &Path) -> io::Result<()> {
+    if target.is_dir()  { return Err(Error::new(ErrorKind::Other, "The target directory already exists")) }
+
+    let mut paths = Vec::new(); 
+    find_paths(source, &mut paths)?;
+
+    for source_path in paths {
+        let source_path = source_path.strip_prefix(source).unwrap();
+        let path = target.join(source_path);
+
+        fs::create_dir_all(path.parent().unwrap())?;
+    }
+    Ok(())
+}
+
