@@ -8,19 +8,18 @@ use std::env;
 
 use ink::diff::Diff;
 use ink::InkError;
+use ink::log::Log;
 
 
 fn main() {
-    // fs::remove_dir_all("./.ink").unwrap();
-    init().unwrap();
 }
 
-fn init() -> Result<(), io::Error> {
+fn init() -> Result<(), InkError> {
     // create ./.ink dir
     let ink_dir = env::current_dir()?.join(".ink");
     fs::create_dir(&ink_dir)?;
 
-    File::create(ink_dir.join("log"))?;
+    Log::new(&ink_dir.join("log"))?;
 
     Ok(())
 }
@@ -37,7 +36,7 @@ fn get_ink_dir() -> Result<PathBuf, InkError> {
     }
 }
 
-
+/// Find all the file paths in a directory
 fn find_paths(dir: &Path, v: &mut Vec<PathBuf>) -> io::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {

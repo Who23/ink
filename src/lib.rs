@@ -1,3 +1,4 @@
+pub mod log;
 pub mod diff;
 
 use std::io;
