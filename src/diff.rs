@@ -5,7 +5,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 /// The type of edit - Insertion or Deletion
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 enum EditOp {
     Insert,
     Delete,
@@ -48,16 +48,16 @@ pub struct Diff {
 
 impl Diff {
     /// Create a diff from two files using the Myers' Diff Algorithm.
-    pub fn from(a: Vec<String>, b: Vec<String>) -> Diff {
-        let trace = explore_paths(&a, &b);
-        let path = find_path(trace, a.len(), b.len());
-        let edits = create_edits(path, &a, &b);
+    pub fn from<S: AsRef<str>>(a: &[S], b: &[S]) -> Diff {
+        let trace = explore_paths(a, b);
+        let path = find_path(&trace, a.len(), b.len());
+        let edits = create_edits(&path, a, b);
 
         Diff { edits }
     }
 
     /// Deserialize an edit script to create a diff
-    pub fn from_edit_script(edit_script: Vec<String>) -> Result<Diff, Box<dyn Error>> {
+    pub fn from_edit_script<S: AsRef<str>>(edit_script: &[S]) -> Result<Diff, Box<dyn Error>> {
         let mut edits = Vec::new();
 
         // store what will be in the edit through the loop
@@ -71,7 +71,8 @@ impl Diff {
             // if we're on a content line, add it to the buffer
             if content_lines > 0 {
                 content_lines -= 1;
-                content.push_str(&(line + "\n"));
+                content.push_str(line.as_ref());
+                content.push_str("\n");
                 continue;
             }
 
@@ -88,7 +89,7 @@ impl Diff {
             }
 
             // get the starting line #, ending line #, & type of edit
-            let components: Vec<&str> = line.split(',').collect();
+            let components: Vec<&str> = line.as_ref().split(',').collect();
             line_start = components[0].parse::<usize>()?;
             line_end = components[1].parse::<usize>()?;
             operation = match components[2] {
@@ -299,7 +300,7 @@ impl Diff {
 
 /// Creates a vector of `Edit`s given a path through the edit graph
 /// Final part of the Myers' Diff Algorithm
-fn create_edits(path: Vec<(usize, usize)>, a: &[String], b: &[String]) -> Vec<Edit> {
+fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec<Edit> {
     let mut diff: Vec<Edit> = Vec::new();
 
     let mut x = 0;
@@ -311,9 +312,9 @@ fn create_edits(path: Vec<(usize, usize)>, a: &[String], b: &[String]) -> Vec<Ed
         // a vertical move (no x change) means insert
         // horizontal move means delete
         // Diagonal move means same between files
-        let edit_type = if x == prev_x {
+        let edit_type = if x == *prev_x {
             Some(EditOp::Insert)
-        } else if y == prev_y {
+        } else if y == *prev_y {
             Some(EditOp::Delete)
         } else {
             None
@@ -333,14 +334,14 @@ fn create_edits(path: Vec<(usize, usize)>, a: &[String], b: &[String]) -> Vec<Ed
             if let Some(edit) = diff.last_mut() {
                 if edit.operation == edit_type && (edit.line_end + 1) >= line_idx {
                     edit.line_end += 1;
-                    edit.content.push_str(lines);
+                    edit.content.push_str(lines.as_ref());
                     edit.content.push_str("\n");
                 } else {
                     diff.push(Edit {
                         operation: edit_type,
                         line_start: line_idx,
                         line_end: line_idx,
-                        content: (*lines).clone() + "\n",
+                        content: String::from(lines.as_ref()) + "\n"
                     });
                 }
             } else {
@@ -348,13 +349,13 @@ fn create_edits(path: Vec<(usize, usize)>, a: &[String], b: &[String]) -> Vec<Ed
                     operation: edit_type,
                     line_start: line_idx,
                     line_end: line_idx,
-                    content: (*lines).clone() + "\n",
+                    content: String::from(lines.as_ref()) + "\n"
                 });
             }
         }
 
-        x = prev_x;
-        y = prev_y;
+        x = *prev_x;
+        y = *prev_y;
     }
 
     diff
@@ -362,7 +363,9 @@ fn create_edits(path: Vec<(usize, usize)>, a: &[String], b: &[String]) -> Vec<Ed
 
 /// Find the path traversed by a Shortest Edit Script
 /// Second part of the Myers' Diff Algorithm
-fn find_path(trace: Vec<Vec<usize>>, a_len: usize, b_len: usize) -> Vec<(usize, usize)> {
+/// Single char names because it matches the paper
+#[allow(clippy::many_single_char_names)]
+fn find_path<V: AsRef<[usize]>>(trace: &[V], a_len: usize, b_len: usize) -> Vec<(usize, usize)> {
     let max = a_len + b_len;
 
     let mut x = a_len as isize;
@@ -372,6 +375,7 @@ fn find_path(trace: Vec<Vec<usize>>, a_len: usize, b_len: usize) -> Vec<(usize, 
     // work our way from the end point to the start point
     for (d, v) in trace.iter().enumerate().rev() {
         let d = d as isize;
+        let v = v.as_ref();
 
         let k = x - y;
 
@@ -427,7 +431,7 @@ fn find_path(trace: Vec<Vec<usize>>, a_len: usize, b_len: usize) -> Vec<(usize, 
 /// First part of the Myers' Diff Algorithm
 /// Single char names because it matches the paper
 #[allow(clippy::many_single_char_names)]
-fn explore_paths(a: &[String], b: &[String]) -> Vec<Vec<usize>> {
+fn explore_paths<S: AsRef<str>>(a: &[S], b: &[S]) -> Vec<Vec<usize>> {
     let (n, m) = (a.len(), b.len());
     let max = n + m;
     let mut v = vec![0; 2 * max + 1];
@@ -454,7 +458,7 @@ fn explore_paths(a: &[String], b: &[String]) -> Vec<Vec<usize>> {
             let mut y = x + d - k;
 
             // going along a diagonal
-            while x < n && y < m && a[x] == b[y] {
+            while x < n && y < m && a[x].as_ref() == b[y].as_ref() {
                 x += 1;
                 y += 1;
             }
