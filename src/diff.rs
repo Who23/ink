@@ -5,7 +5,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 /// The type of edit - Insertion or Deletion
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum EditOp {
     Insert,
     Delete,
@@ -15,6 +15,7 @@ enum EditOp {
 /// or more lines.
 ///
 /// This should only be created via the `Diff` struct
+#[derive(Debug, PartialEq, Eq)]
 pub struct Edit {
     operation: EditOp,
     line_start: usize,
@@ -477,4 +478,345 @@ fn explore_paths<S: AsRef<str>>(a: &[S], b: &[S]) -> Vec<Vec<usize>> {
     }
 
     t
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{SeekFrom, Seek, BufRead, BufReader, self};
+    use tempfile::NamedTempFile;
+
+    // ---------- A ------------
+    // The small cactus sat in a 
+    // pot full of sand and dirt
+
+    // Next to it was a small basil
+    // plant in a similar pot
+
+    // Everyday, the plants got plenty
+    // of sunshine and water
+
+    // ---------- B -------------
+    // The small green cactus sat in a 
+    // pot full of sand and dirt
+
+    // In another part of the house,
+    // another house plant grew in a 
+    // much bigger pot
+
+    // Everyday, the plants got plenty
+    // of water and sunshine
+
+    #[test]
+    fn creating_diff_add_line() {
+        const A: [&str; 2] = ["this is a line", "another line"];
+        const B: [&str; 3] = ["this is a line", "new line!", "another line"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut expected_edits = Vec::new();
+        
+        expected_edits.push(Edit {
+            content: "new line!\n".to_string(),
+            line_start: 1,
+            line_end: 1,
+            operation: EditOp::Insert
+        });
+
+        assert_eq!(diff.edits, expected_edits);
+    }
+
+    #[test]
+    fn creating_diff_add_multiple_lines() {
+        const A: [&str; 2] = ["this is a line", "another line"];
+        const B: [&str; 5] = ["this is a line", "new line!", "woah another", "another line", "one after"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut expected_edits = Vec::new();
+
+        expected_edits.push(Edit {
+            content: "new line!\nwoah another\n".to_string(),
+            line_start: 1,
+            line_end: 2,
+            operation: EditOp::Insert
+        });
+
+        expected_edits.push(Edit {
+            content: "one after\n".to_string(),
+            line_start: 2,
+            line_end: 2,
+            operation: EditOp::Insert
+        });
+
+        assert_eq!(diff.edits, expected_edits);
+    }
+
+    #[test]
+    fn creating_diff_delete_line() {
+        const A: [&str; 3] = ["this is a line", "new line!", "another line"];
+        const B: [&str; 2] = ["this is a line", "another line"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut expected_edits = Vec::new();
+        
+        expected_edits.push(Edit {
+            content: "new line!\n".to_string(),
+            line_start: 1,
+            line_end: 1,
+            operation: EditOp::Delete
+        });
+
+        assert_eq!(diff.edits, expected_edits);
+    }
+
+    #[test]
+    fn creating_diff_delete_multiple_lines() {
+        const A: [&str; 6] = ["this is a line", "new line!", "woah another", "another line", "one after", "and another!!"];
+        const B: [&str; 2] = ["this is a line", "another line"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut expected_edits = Vec::new();
+
+        expected_edits.push(Edit {
+            content: "new line!\nwoah another\n".to_string(),
+            line_start: 1,
+            line_end: 2,
+            operation: EditOp::Delete
+        });
+
+        expected_edits.push(Edit {
+            content: "one after\nand another!!\n".to_string(),
+            line_start: 4,
+            line_end: 5,
+            operation: EditOp::Delete
+        });
+
+        assert_eq!(diff.edits, expected_edits);
+    }
+
+    #[test]
+    fn test_diff_apply() {
+        let A = ["The small cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of sunshine and water"];
+
+        let B = ["The small green cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of water and sunshine"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
+        write!(f, "{}", A.join("\n"));
+        
+        let f_path = f.into_temp_path();
+        
+        diff.apply(&f_path).unwrap();
+
+        let f = BufReader::new(File::open(&f_path).unwrap());
+        let mut file_len = 0;
+
+        for (index, line) in f.lines().enumerate() {
+            assert_eq!(line.unwrap(), B[index]);
+            file_len += 1;
+        }
+
+        assert_eq!(file_len, B.len());
+    }
+
+    #[test]
+    fn test_diff_rollback() {
+        let A = ["The small cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of sunshine and water"];
+
+        let B = ["The small green cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of water and sunshine"];
+
+        let diff = Diff::from(&A, &B);
+
+        let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
+        write!(f, "{}", B.join("\n"));
+        
+        let f_path = f.into_temp_path();
+        
+        diff.rollback(&f_path).unwrap();
+
+        let f = BufReader::new(File::open(&f_path).unwrap());
+        let mut file_len = 0;
+
+        for (index, line) in f.lines().enumerate() {
+            assert_eq!(line.unwrap(), A[index]);
+            file_len += 1;
+        }
+
+        assert_eq!(file_len, A.len())
+    }
+
+    #[test]
+    fn to_edit_script() {
+        let A = ["The small cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of sunshine and water"];
+
+        let B = ["The small green cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of water and sunshine"];
+
+        let diff = Diff::from(&A, &B);
+
+        let es = diff.edit_script();
+
+        let expected_es = ["0,0,d",
+                           "The small cactus sat in a",
+                           "1,1,a",
+                           "The small green cactus sat in a",
+                           "3,4,d",
+                           "Next to it was a small basil",
+                           "plant in a similar pot",
+                           "5,7,a",
+                           "In another part of the house,",
+                           "another house plant grew in a",
+                           "much bigger pot",
+                           "7,7,d",
+                           "of sunshine and water",
+                           "8,8,a",
+                           "of water and sunshine",
+                           ""];
+
+        assert_eq!(es, expected_es.join("\n"));
+    }
+
+    #[test]
+    fn from_edit_script() {
+        let es = ["0,0,d",
+                 "The small cactus sat in a",
+                 "1,1,a",
+                 "The small green cactus sat in a",
+                 "3,4,d",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "5,7,a",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "7,7,d",
+                 "of sunshine and water",
+                 "8,8,a",
+                 "of water and sunshine"];
+
+        let diff = Diff::from_edit_script(&es).unwrap();
+
+        let expected_edits = [
+            Edit {
+                operation: EditOp::Delete,
+                line_start: 0,
+                line_end: 0,
+                content: String::from("The small cactus sat in a\n")
+            },
+            Edit {
+                operation: EditOp::Insert,
+                line_start: 1,
+                line_end: 1,
+                content: String::from("The small green cactus sat in a\n")
+            },
+            Edit {
+                operation: EditOp::Delete,
+                line_start: 3,
+                line_end: 4,
+                content: String::from("Next to it was a small basil\nplant in a similar pot\n")
+            },
+            Edit {
+                operation: EditOp::Insert,
+                line_start: 5,
+                line_end: 7,
+                content: String::from("In another part of the house,\nanother house plant grew in a\nmuch bigger pot\n")
+            },
+            Edit {
+                operation: EditOp::Delete,
+                line_start: 7,
+                line_end: 7,
+                content: String::from("of sunshine and water\n")
+            },
+            Edit {
+                operation: EditOp::Insert,
+                line_start: 8,
+                line_end: 8,
+                content: String::from("of water and sunshine\n")
+            },
+        ];
+
+        for (index, edit) in diff.edits.iter().enumerate() {
+            assert_eq!(edit, &expected_edits[index]);
+        }
+
+        assert_eq!(diff.edits.len(), expected_edits.len());
+    }
+
+    #[test]
+    fn to_and_from_edit_script() {
+        let A = ["The small cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of sunshine and water"];
+
+        let B = ["The small green cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of water and sunshine"];
+
+        let diff = Diff::from(&A, &B);
+        let edits = diff.edit_script();
+        let edit_lines = edits.lines().collect::<Vec<&str>>();
+
+        let second_diff = Diff::from_edit_script(&edit_lines).unwrap();
+
+        assert_eq!(diff.edits, second_diff.edits);
+    }
 }
