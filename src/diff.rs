@@ -142,8 +142,6 @@ impl Diff {
         let mut lines_to_delete = 0; // if deleting lines, how many are left to delete
         let mut current_edit_index = 0; // current edit we're on
         let mut current_edit: &Edit;
-        let mut last_edit = &edits[current_edit_index]; // the previous edit
-        let mut next_edit: &Edit; // the next edit
 
         for (line_number, line) in file.lines().enumerate() {
             let line = line?;
@@ -163,43 +161,12 @@ impl Diff {
                     EditOp::Insert => {
                         // write the inserted lines into the tmp file
                         tmp.write_all(current_edit.content.as_bytes())?;
-
-                        // decides whether to write the current line of the normal file into the tmp file
-                        // if this is not the last edit & the next edit would delete this line
-                        // don't write it
-                        if current_edit_index + 1 != edits.len() {
-                            next_edit = &edits[current_edit_index + 1];
-
-                            if !(next_edit.operation == EditOp::Delete
-                                && current_edit.line_end + 1 == next_edit.line_start)
-                            {
-                                tmp.write_all((line + "\n").as_bytes())?;
-                            }
-                        } else {
-                            tmp.write_all((line + "\n").as_bytes())?;
-                        }
-
-                        last_edit = current_edit;
+                        tmp.write_all((line + "\n").as_bytes())?;
                     }
                     EditOp::Delete => {
                         // how many lines we should be deleting? if the end == the start, then we
                         // only delete this line (sets to 0)
                         lines_to_delete = current_edit.line_end - current_edit.line_start;
-
-                        // checks if we write the current line into the tmp file
-                        // checks if the last edit was an insert that already deleted the line that
-                        // we needed to delete, so we should write this next line into the tmp file
-                        if last_edit.operation == EditOp::Insert
-                            && last_edit.line_end + 1 == current_edit.line_start
-                        {
-                            tmp.write_all((line + "\n").as_bytes())?;
-
-                            if lines_to_delete > 0 {
-                                lines_to_delete -= 1;
-                            }
-                        }
-
-                        last_edit = current_edit;
                     }
                 }
 
@@ -301,6 +268,7 @@ impl Diff {
 
 /// Creates a vector of `Edit`s given a path through the edit graph
 /// Final part of the Myers' Diff Algorithm
+#[allow(clippy::collapsible_if)]
 fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec<Edit> {
     let mut diff: Vec<Edit> = Vec::new();
 
@@ -325,15 +293,19 @@ fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec
             // get what we are inserting/deleting and where
             // insert --> coming from the 2nd string, opposite for delete
             // the line number is always from the first file
-            let (line_idx, lines) = match edit_type {
-                EditOp::Insert => (x, &b[y]),
-                EditOp::Delete => (x, &a[x]),
+            let lines = match edit_type {
+                EditOp::Insert => &b[y],
+                EditOp::Delete => &a[x],
             };
+
+            let line_idx = x;
 
             // If the last edit was of the same type, expand that edit
             // instead of creaing a new one. Otherwise add the new edit to the diff
+            // Edits that should be grouped together will always have the same line_start (?)
             if let Some(edit) = diff.last_mut() {
-                if edit.operation == edit_type && (edit.line_end + 1) >= line_idx {
+                if edit.operation == edit_type && ((edit_type == EditOp::Insert && edit.line_start   == line_idx) ||
+                                                   (edit_type == EditOp::Delete && edit.line_end + 1 == line_idx)) {
                     edit.line_end += 1;
                     edit.content.push_str(lines.as_ref());
                     edit.content.push_str("\n");
@@ -398,7 +370,7 @@ fn find_path<V: AsRef<[usize]>>(trace: &[V], a_len: usize, b_len: usize) -> Vec<
         };
 
         // Calculate all the same values for that backtracked point
-        let prev_index_k = if k < 0 {
+        let prev_index_k = if prev_k < 0 {
             max - prev_k.abs() as usize
         } else {
             max + prev_k.abs() as usize
