@@ -206,63 +206,7 @@ impl Diff {
 
     /// Rollback a diff on a file by applying the reverse diff
     pub fn rollback(&self, file_path: &Path) -> io::Result<()> {
-        let mut rollback_edits = vec![];
-
-        // the line offset, because inserting/deleting line numbers are based on
-        // the unmodified file.
-        let mut offset: isize = 0;
-
-        for edit in &self.edits {
-            let new_edit = match edit.operation {
-                // change the insert to a delete, using the length of the content
-                // for the line numbers while adding the offset as well.
-                EditOp::Insert => {
-                    let num_lines = edit.content.lines().count();
-
-                    let line_start = if offset < 0 {
-                        edit.line_start - offset.abs() as usize
-                    } else {
-                        edit.line_start + offset.abs() as usize
-                    };
-
-                    if num_lines != 1 {
-                        offset += num_lines as isize;
-                    }
-
-                    Edit {
-                        operation: EditOp::Delete,
-                        line_start,
-                        line_end: num_lines + line_start - 1,
-                        content: edit.content.clone(),
-                    }
-                }
-                // same as above for the delete
-                EditOp::Delete => {
-                    let num_lines = edit.content.lines().count();
-
-                    let line_start = if offset < 0 {
-                        edit.line_start - offset.abs() as usize
-                    } else {
-                        edit.line_start + offset.abs() as usize
-                    };
-
-                    if num_lines != 1 {
-                        offset -= num_lines as isize;
-                    }
-
-                    Edit {
-                        operation: EditOp::Insert,
-                        line_start,
-                        line_end: line_start + num_lines - 1,
-                        content: edit.content.clone(),
-                    }
-                }
-            };
-
-            rollback_edits.push(new_edit);
-        }
-
-        Diff::apply_edits(&rollback_edits, file_path)
+        unimplemented!();
     }
 }
 
