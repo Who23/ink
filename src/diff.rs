@@ -5,7 +5,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 /// The type of edit - Insertion or Deletion
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 enum EditOp {
     Insert,
     Delete,
@@ -15,7 +15,7 @@ enum EditOp {
 /// or more lines.
 ///
 /// This should only be created via the `Diff` struct
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Edit {
     operation: EditOp,
     line_start: usize,
@@ -458,27 +458,6 @@ mod tests {
     use std::io::{SeekFrom, Seek, BufRead, BufReader, self};
     use tempfile::NamedTempFile;
 
-    // ---------- A ------------
-    // The small cactus sat in a 
-    // pot full of sand and dirt
-
-    // Next to it was a small basil
-    // plant in a similar pot
-
-    // Everyday, the plants got plenty
-    // of sunshine and water
-
-    // ---------- B -------------
-    // The small green cactus sat in a 
-    // pot full of sand and dirt
-
-    // In another part of the house,
-    // another house plant grew in a 
-    // much bigger pot
-
-    // Everyday, the plants got plenty
-    // of water and sunshine
-
     #[test]
     fn creating_diff_add_line() {
         const A: [&str; 2] = ["this is a line", "another line"];
@@ -571,7 +550,7 @@ mod tests {
 
     #[test]
     fn test_diff_apply() {
-        let A = ["The small cactus sat in a",
+        const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "Next to it was a small basil",
@@ -580,7 +559,7 @@ mod tests {
                  "Everyday, the plants got plenty",
                  "of sunshine and water"];
 
-        let B = ["The small green cactus sat in a",
+        const B : [&str; 9] = ["The small green cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "In another part of the house,",
@@ -612,7 +591,7 @@ mod tests {
 
     #[test]
     fn test_diff_rollback() {
-        let A = ["The small cactus sat in a",
+        const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "Next to it was a small basil",
@@ -621,7 +600,7 @@ mod tests {
                  "Everyday, the plants got plenty",
                  "of sunshine and water"];
 
-        let B = ["The small green cactus sat in a",
+        const B : [&str; 9] = ["The small green cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "In another part of the house,",
@@ -653,7 +632,7 @@ mod tests {
 
     #[test]
     fn to_edit_script() {
-        let A = ["The small cactus sat in a",
+        const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "Next to it was a small basil",
@@ -662,7 +641,7 @@ mod tests {
                  "Everyday, the plants got plenty",
                  "of sunshine and water"];
 
-        let B = ["The small green cactus sat in a",
+        const B : [&str; 9] = ["The small green cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "In another part of the house,",
@@ -764,7 +743,7 @@ mod tests {
 
     #[test]
     fn to_and_from_edit_script() {
-        let A = ["The small cactus sat in a",
+        const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "Next to it was a small basil",
@@ -773,7 +752,7 @@ mod tests {
                  "Everyday, the plants got plenty",
                  "of sunshine and water"];
 
-        let B = ["The small green cactus sat in a",
+        const B : [&str; 9] = ["The small green cactus sat in a",
                  "pot full of sand and dirt",
                  "",
                  "In another part of the house,",
@@ -791,4 +770,25 @@ mod tests {
 
         assert_eq!(diff.edits, second_diff.edits);
     }
+
+    // ---------- A ------------
+    // The small cactus sat in a 
+    // pot full of sand and dirt
+
+    // Next to it was a small basil
+    // plant in a similar pot
+
+    // Everyday, the plants got plenty
+    // of sunshine and water
+
+    // ---------- B -------------
+    // The small green cactus sat in a 
+    // pot full of sand and dirt
+
+    // In another part of the house,
+    // another house plant grew in a 
+    // much bigger pot
+
+    // Everyday, the plants got plenty
+    // of water and sunshine
 }
