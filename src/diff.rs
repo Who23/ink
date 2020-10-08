@@ -4,23 +4,29 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
-/// The type of edit - Insertion or Deletion
+/// The type of edit - Insertion, Deletion, or Replacement
 #[derive(PartialEq, Eq, Debug, Clone)]
-enum EditOp {
+enum Operation {
     Insert,
     Delete,
+    Replace
 }
 
-/// One section of a diff which involves adding or removing one
-/// or more lines.
-///
-/// This should only be created via the `Diff` struct
+/// Half of an edit, that can refer to the original file
+/// or the modified file. Should only be constructed with an Edit.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Edit {
-    operation: EditOp,
-    line_start: usize,
-    line_end: usize,
-    content: String,
+struct HalfEdit {
+    line: usize,
+    content: Vec<String>
+}
+
+/// One section of a diff which involves adding or removing, or replacing
+/// or more lines.
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct Edit {
+    op: Operation,
+    original: HalfEdit,
+    modified: HalfEdit
 }
 
 impl Edit {
@@ -44,7 +50,7 @@ impl Edit {
 ///
 /// Constructs and holds a sequence of `Edit`.
 pub struct Diff {
-    pub edits: Vec<Edit>,
+    edits: Vec<Edit>,
 }
 
 impl Diff {
