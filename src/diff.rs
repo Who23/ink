@@ -14,6 +14,7 @@ enum Operation {
 
 /// Half of an edit, that can refer to the original file
 /// or the modified file. Should only be constructed with an Edit.
+/// The first line is line 0, and the last line is line len - 1
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct HalfEdit {
     line: usize,
@@ -30,10 +31,51 @@ struct Edit {
 }
 
 impl Edit {
+    /// create an edit given an op, line numbers, and content
+    // TODO: error check that for insert and delete edit, modified/original is exclusive, just for
+    // error keeping sake.
+    fn new(op: Operation, x: usize, y: usize, original_content: Vec<String>, modified_content: Vec<String>) -> Edit {
+        match op {
+            Operation::Insert => {
+                Edit {
+                    op,
+                    original: HalfEdit { line: x, content: vec![] },
+                    modified: HalfEdit { line: y, content: modified_content }
+                }
+            },
+            Operation::Delete => {
+                Edit {
+                    op,
+                    original: HalfEdit { line: x, content: original_content },
+                    modified: HalfEdit { line: y, content: vec![] }
+                }
+            }
+            Operation::Replace => {
+                Edit {
+                    op,
+                    original: HalfEdit { line: x, content: original_content },
+                    modified: HalfEdit { line: y, content: modified_content }
+                }
+            }
+        }
+    }
+
+    fn join(&mut self, edit: Edit) {
+        self.original.content.extend(edit.original.content);
+        self.modified.content.extend(edit.modified.content);
+
+        if self.original.content.len() > 0 && self.modified.content.len() > 0 {
+            self.op = Operation::Replace
+        }
+    }
+
+
     /// Creating an 'edit script' from a single edit,
     /// based on the UNIX diff utility's edit script,
     /// though this is not an 'ed' compatible edit script
     fn to_edit_script(&self) -> String {
+        unimplemented!();
+        /*
         let op = match self.operation {
             EditOp::Insert => "a",
             EditOp::Delete => "d",
@@ -43,6 +85,7 @@ impl Edit {
             "{},{},{}\n{}",
             self.line_start, self.line_end, op, self.content
         )
+        */
     }
 }
 
@@ -65,6 +108,8 @@ impl Diff {
 
     /// Deserialize an edit script to create a diff
     pub fn from_edit_script<S: AsRef<str>>(edit_script: &[S]) -> Result<Diff, Box<dyn Error>> {
+        unimplemented!();
+        /*
         let mut edits = Vec::new();
 
         // store what will be in the edit through the loop
@@ -118,6 +163,7 @@ impl Diff {
         });
 
         Ok(Diff { edits })
+        */
     }
 
     /// Serialize an 'edit script' for the diff.
@@ -134,6 +180,8 @@ impl Diff {
     /// Goes line by line through the file to add edits in a tmp file,
     /// then overwriting the normal file with the tmp file.
     fn apply_edits(edits: &[Edit], file_path: &Path) -> io::Result<()> {
+        unimplemented!();
+        /*
         let tmp_path = file_path.with_extension(".tmp");
 
         // check if there are any edits
@@ -203,6 +251,7 @@ impl Diff {
         fs::rename(tmp_path, file_path)?;
 
         Ok(())
+        */
     }
 
     /// Apply a diff to a file
@@ -221,7 +270,7 @@ impl Diff {
 #[allow(clippy::collapsible_if)]
 fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec<Edit> {
     let mut diff: Vec<Edit> = Vec::new();
-
+    let mut chunk: Option<Edit> = None;
     let mut x = 0;
     let mut y = 0;
 
@@ -232,53 +281,44 @@ fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec
         // horizontal move means delete
         // Diagonal move means same between files
         let edit_type = if x == *prev_x {
-            Some(EditOp::Insert)
+            Some(Operation::Insert)
         } else if y == *prev_y {
-            Some(EditOp::Delete)
+            Some(Operation::Delete)
         } else {
             None
         };
 
-        if let Some(edit_type) = edit_type {
-            // get what we are inserting/deleting and where
-            // insert --> coming from the 2nd string, opposite for delete
-            // the line number is always from the first file
-            let lines = match edit_type {
-                EditOp::Insert => &b[y],
-                EditOp::Delete => &a[x],
-            };
+        match &edit_type {
+            Some(edit_type) => {
+                // constuct edit
 
-            let line_idx = x;
+                let original_content = if x != a.len() { vec![a[x].as_ref().to_string()] } else { vec![] };
+                let modified_content = if y != b.len() { vec![b[y].as_ref().to_string()] } else { vec![] };
+                let edit = Edit::new(edit_type.clone(), x, y, original_content, modified_content);
 
-            // If the last edit was of the same type, expand that edit
-            // instead of creaing a new one. Otherwise add the new edit to the diff
-            // Edits that should be grouped together will always have the same line_start (?)
-            if let Some(edit) = diff.last_mut() {
-                if edit.operation == edit_type && ((edit_type == EditOp::Insert && edit.line_start   == line_idx) ||
-                                                   (edit_type == EditOp::Delete && edit.line_end + 1 == line_idx)) {
-                    edit.line_end += 1;
-                    edit.content.push_str(lines.as_ref());
-                    edit.content.push_str("\n");
-                } else {
-                    diff.push(Edit {
-                        operation: edit_type,
-                        line_start: line_idx,
-                        line_end: line_idx,
-                        content: String::from(lines.as_ref()) + "\n"
-                    });
+                match &mut chunk {
+                    // add edit to chunk
+                    Some(chunk) => { chunk.join(edit) }
+                    // first edit of chunk, so set chunk
+                    None => { chunk = Some(edit) }
                 }
-            } else {
-                diff.push(Edit {
-                    operation: edit_type,
-                    line_start: line_idx,
-                    line_end: line_idx,
-                    content: String::from(lines.as_ref()) + "\n"
-                });
+            },
+            None => {
+                if let Some(inner_chunk) = &chunk {
+                    // add chunk to diff and reset chunk
+                    diff.push(inner_chunk.clone());
+                    chunk = None;
+                }
             }
         }
 
         x = *prev_x;
         y = *prev_y;
+    }
+
+    if let Some(inner_chunk) = &chunk {
+        // add chunk to diff and reset chunk
+        diff.push(inner_chunk.clone());
     }
 
     diff
@@ -407,6 +447,48 @@ mod tests {
     use super::*;
     use std::io::{SeekFrom, Seek, BufRead, BufReader, self};
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn create_edits_algo() {
+        const A : [&str; 8] = ["The small cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "Next to it was a small basil",
+                 "plant in a similar pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of sunshine and water"];
+
+        const B : [&str; 9] = ["The small green cactus sat in a",
+                 "pot full of sand and dirt",
+                 "",
+                 "In another part of the house,",
+                 "another house plant grew in a",
+                 "much bigger pot",
+                 "",
+                 "Everyday, the plants got plenty",
+                 "of water and sunshine"];
+
+        let trace = explore_paths(&A, &B);
+        let path = find_path(&trace, A.len(), B.len());
+        let edits = create_edits(&path, &A, &B);
+
+        assert_eq!(edits, vec![
+            Edit { 
+                op: Operation::Replace, 
+                original: HalfEdit { line: 0, content: vec!["The small cactus sat in a".to_string()] }, 
+                modified: HalfEdit { line: 0, content: vec!["The small green cactus sat in a".to_string()] }
+            },
+            Edit { 
+                op: Operation::Replace, 
+                original: HalfEdit { line: 3, content: vec!["Next to it was a small basil".to_string(), "plant in a similar pot".to_string()] },
+                modified: HalfEdit { line: 3, content: vec!["In another part of the house,".to_string(), "another house plant grew in a".to_string(), "much bigger pot".to_string()] } },
+            Edit { 
+                op: Operation::Replace,
+                original: HalfEdit { line: 7, content: vec!["of sunshine and water".to_string()] },
+                modified: HalfEdit { line: 8, content: vec!["of water and sunshine".to_string()] }},
+        ])
+    }
 
     #[test]
     fn creating_diff_add_line() {
@@ -578,6 +660,7 @@ mod tests {
         }
 
         assert_eq!(file_len, A.len())
+        */
     }
 
     #[test]
