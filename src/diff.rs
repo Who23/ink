@@ -492,6 +492,7 @@ mod tests {
 
     #[test]
     fn creating_diff_add_line() {
+        /*
         const A: [&str; 2] = ["this is a line", "another line"];
         const B: [&str; 3] = ["this is a line", "new line!", "another line"];
 
@@ -507,10 +508,13 @@ mod tests {
         });
 
         assert_eq!(diff.edits, expected_edits);
+        */
+        panic!();
     }
 
     #[test]
     fn creating_diff_add_multiple_lines() {
+        /*
         const A: [&str; 2] = ["this is a line", "another line"];
         const B: [&str; 5] = ["this is a line", "new line!", "woah another", "another line", "one after"];
 
@@ -533,10 +537,13 @@ mod tests {
         });
 
         assert_eq!(diff.edits, expected_edits);
+        */
+        panic!();
     }
 
     #[test]
     fn creating_diff_delete_line() {
+        /*
         const A: [&str; 3] = ["this is a line", "new line!", "another line"];
         const B: [&str; 2] = ["this is a line", "another line"];
 
@@ -552,10 +559,13 @@ mod tests {
         });
 
         assert_eq!(diff.edits, expected_edits);
+        */
+        panic!();
     }
 
     #[test]
     fn creating_diff_delete_multiple_lines() {
+        /*
         const A: [&str; 6] = ["this is a line", "new line!", "woah another", "another line", "one after", "and another!!"];
         const B: [&str; 2] = ["this is a line", "another line"];
 
@@ -578,10 +588,13 @@ mod tests {
         });
 
         assert_eq!(diff.edits, expected_edits);
+        */
+        panic!();
     }
 
     #[test]
     fn test_diff_apply() {
+        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -619,10 +632,13 @@ mod tests {
         }
 
         assert_eq!(file_len, B.len());
+        */
+        panic!();
     }
 
     #[test]
     fn test_diff_rollback() {
+        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -661,10 +677,12 @@ mod tests {
 
         assert_eq!(file_len, A.len())
         */
+        panic!();
     }
 
     #[test]
     fn to_edit_script() {
+        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -706,10 +724,13 @@ mod tests {
                            ""];
 
         assert_eq!(es, expected_es.join("\n"));
+        */
+        panic!();
     }
 
     #[test]
     fn from_edit_script() {
+        /*
         let es = ["0,0,d",
                  "The small cactus sat in a",
                  "1,1,a",
@@ -772,10 +793,13 @@ mod tests {
         }
 
         assert_eq!(diff.edits.len(), expected_edits.len());
+        */
+        panic!();
     }
 
     #[test]
     fn to_and_from_edit_script() {
+        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -802,6 +826,8 @@ mod tests {
         let second_diff = Diff::from_edit_script(&edit_lines).unwrap();
 
         assert_eq!(diff.edits, second_diff.edits);
+        */
+        panic!();
     }
 
     // ---------- A ------------
