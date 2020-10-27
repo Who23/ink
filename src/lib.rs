@@ -1,5 +1,5 @@
-pub mod log;
 pub mod diff;
+pub mod log;
 
 use std::io;
 
@@ -8,7 +8,7 @@ pub enum InkError {
     Err(&'static str),
     Uninitialized,
     Malformed(&'static str),
-    IO(io::Error)
+    IO(io::Error),
 }
 
 impl From<io::Error> for InkError {

@@ -1,6 +1,6 @@
 //! Tools for creating diffs, done through the `Diff` struct
-mod edit;
 mod algo;
+mod edit;
 
 use std::error::Error;
 use std::fs::{self, File};
@@ -20,7 +20,7 @@ impl Diff {
     /// Create a diff from two files using the Myers' Diff Algorithm.
     pub fn from<S: AsRef<str>>(a: &[S], b: &[S]) -> Diff {
         let edits = algo::myers::from(a, b);
-        
+
         Diff { edits }
     }
 
@@ -183,13 +183,9 @@ impl Diff {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{SeekFrom, Seek, BufRead, BufReader, self};
-    use tempfile::NamedTempFile;
-
 
     #[test]
     fn test_diff_apply() {
@@ -217,9 +213,9 @@ mod tests {
 
         let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
         write!(f, "{}", A.join("\n"));
-        
+
         let f_path = f.into_temp_path();
-        
+
         diff.apply(&f_path).unwrap();
 
         let f = BufReader::new(File::open(&f_path).unwrap());
@@ -261,9 +257,9 @@ mod tests {
 
         let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
         write!(f, "{}", B.join("\n"));
-        
+
         let f_path = f.into_temp_path();
-        
+
         diff.rollback(&f_path).unwrap();
 
         let f = BufReader::new(File::open(&f_path).unwrap());
@@ -430,7 +426,7 @@ mod tests {
     }
 
     // ---------- A ------------
-    // The small cactus sat in a 
+    // The small cactus sat in a
     // pot full of sand and dirt
 
     // Next to it was a small basil
@@ -440,11 +436,11 @@ mod tests {
     // of sunshine and water
 
     // ---------- B -------------
-    // The small green cactus sat in a 
+    // The small green cactus sat in a
     // pot full of sand and dirt
 
     // In another part of the house,
-    // another house plant grew in a 
+    // another house plant grew in a
     // much bigger pot
 
     // Everyday, the plants got plenty

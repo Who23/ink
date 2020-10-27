@@ -3,7 +3,7 @@
 pub enum Operation {
     Insert,
     Delete,
-    Replace
+    Replace,
 }
 
 /// Half of an edit, that can refer to the original file
@@ -12,7 +12,7 @@ pub enum Operation {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct HalfEdit {
     pub line: usize,
-    pub content: Vec<String>
+    pub content: Vec<String>,
 }
 
 /// One section of a diff which involves adding or removing, or replacing
@@ -21,14 +21,20 @@ pub struct HalfEdit {
 pub struct Edit {
     pub op: Operation,
     pub original: HalfEdit,
-    pub modified: HalfEdit
+    pub modified: HalfEdit,
 }
 
 impl Edit {
     /// create an edit given an op, line numbers, and content
     // TODO: error check that for insert and delete edit, modified/original is exclusive, just for
     // error keeping sake.
-    pub fn new(op: Operation, x: usize, y: usize, original_content: Vec<String>, modified_content: Vec<String>) -> Edit {
+    pub fn new(
+        op: Operation,
+        x: usize,
+        y: usize,
+        original_content: Vec<String>,
+        modified_content: Vec<String>,
+    ) -> Edit {
         match op {
             Operation::Insert => {
                 Edit {
@@ -58,12 +64,12 @@ impl Edit {
         self.original.content.extend(edit.original.content);
         self.modified.content.extend(edit.modified.content);
 
-        if self.original.content.len() > 0 && self.modified.content.len() > 0 {
+        if !self.original.content.is_empty() && !self.modified.content.is_empty() {
             self.op = Operation::Replace
         }
     }
 
-
+    
     /// Creating an 'edit script' from a single edit,
     /// based on the UNIX diff utility's edit script,
     /// though this is not an 'ed' compatible edit script

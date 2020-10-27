@@ -8,7 +8,11 @@ pub mod myers {
     /// Second part of the Myers' Diff Algorithm
     /// Single char names because it matches the paper
     #[allow(clippy::many_single_char_names)]
-    fn find_path<V: AsRef<[usize]>>(trace: &[V], a_len: usize, b_len: usize) -> Vec<(usize, usize)> {
+    fn find_path<V: AsRef<[usize]>>(
+        trace: &[V],
+        a_len: usize,
+        b_len: usize,
+    ) -> Vec<(usize, usize)> {
         let max = a_len + b_len;
 
         let mut x = a_len as isize;
@@ -136,42 +140,76 @@ pub mod myers {
         use crate::diff::edit::{Edit, HalfEdit, Operation};
         #[test]
         fn create_edits_myers_algo() {
-            const A : [&str; 8] = ["The small cactus sat in a",
-                    "pot full of sand and dirt",
-                    "",
-                    "Next to it was a small basil",
-                    "plant in a similar pot",
-                    "",
-                    "Everyday, the plants got plenty",
-                    "of sunshine and water"];
+            const A: [&str; 8] = [
+                "The small cactus sat in a",
+                "pot full of sand and dirt",
+                "",
+                "Next to it was a small basil",
+                "plant in a similar pot",
+                "",
+                "Everyday, the plants got plenty",
+                "of sunshine and water",
+            ];
 
-            const B : [&str; 9] = ["The small green cactus sat in a",
-                    "pot full of sand and dirt",
-                    "",
-                    "In another part of the house,",
-                    "another house plant grew in a",
-                    "much bigger pot",
-                    "",
-                    "Everyday, the plants got plenty",
-                    "of water and sunshine"];
+            const B: [&str; 9] = [
+                "The small green cactus sat in a",
+                "pot full of sand and dirt",
+                "",
+                "In another part of the house,",
+                "another house plant grew in a",
+                "much bigger pot",
+                "",
+                "Everyday, the plants got plenty",
+                "of water and sunshine",
+            ];
 
             let edits = myers::from(&A, &B);
 
-            assert_eq!(edits, vec![
-                Edit { 
-                    op: Operation::Replace, 
-                    original: HalfEdit { line: 0, content: vec!["The small cactus sat in a".to_string()] }, 
-                    modified: HalfEdit { line: 0, content: vec!["The small green cactus sat in a".to_string()] }
-                },
-                Edit { 
-                    op: Operation::Replace, 
-                    original: HalfEdit { line: 3, content: vec!["Next to it was a small basil".to_string(), "plant in a similar pot".to_string()] },
-                    modified: HalfEdit { line: 3, content: vec!["In another part of the house,".to_string(), "another house plant grew in a".to_string(), "much bigger pot".to_string()] } },
-                Edit { 
-                    op: Operation::Replace,
-                    original: HalfEdit { line: 7, content: vec!["of sunshine and water".to_string()] },
-                    modified: HalfEdit { line: 8, content: vec!["of water and sunshine".to_string()] }},
-            ])
+            assert_eq!(
+                edits,
+                vec![
+                    Edit {
+                        op: Operation::Replace,
+                        original: HalfEdit {
+                            line: 0,
+                            content: vec!["The small cactus sat in a".to_string()]
+                        },
+                        modified: HalfEdit {
+                            line: 0,
+                            content: vec!["The small green cactus sat in a".to_string()]
+                        }
+                    },
+                    Edit {
+                        op: Operation::Replace,
+                        original: HalfEdit {
+                            line: 3,
+                            content: vec![
+                                "Next to it was a small basil".to_string(),
+                                "plant in a similar pot".to_string()
+                            ]
+                        },
+                        modified: HalfEdit {
+                            line: 3,
+                            content: vec![
+                                "In another part of the house,".to_string(),
+                                "another house plant grew in a".to_string(),
+                                "much bigger pot".to_string()
+                            ]
+                        }
+                    },
+                    Edit {
+                        op: Operation::Replace,
+                        original: HalfEdit {
+                            line: 7,
+                            content: vec!["of sunshine and water".to_string()]
+                        },
+                        modified: HalfEdit {
+                            line: 8,
+                            content: vec!["of water and sunshine".to_string()]
+                        }
+                    },
+                ]
+            )
         }
 
         #[test]
@@ -183,7 +221,7 @@ pub mod myers {
             let diff = Diff::from(&A, &B);
 
             let mut expected_edits = Vec::new();
-            
+
             expected_edits.push(Edit {
                 content: "new line!\n".to_string(),
                 line_start: 1,
@@ -234,7 +272,7 @@ pub mod myers {
             let diff = Diff::from(&A, &B);
 
             let mut expected_edits = Vec::new();
-            
+
             expected_edits.push(Edit {
                 content: "new line!\n".to_string(),
                 line_start: 1,
@@ -305,17 +343,25 @@ fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec
             Some(edit_type) => {
                 // constuct edit
 
-                let original_content = if x != a.len() { vec![a[x].as_ref().to_string()] } else { vec![] };
-                let modified_content = if y != b.len() { vec![b[y].as_ref().to_string()] } else { vec![] };
+                let original_content = if x != a.len() {
+                    vec![a[x].as_ref().to_string()]
+                } else {
+                    vec![]
+                };
+                let modified_content = if y != b.len() {
+                    vec![b[y].as_ref().to_string()]
+                } else {
+                    vec![]
+                };
                 let edit = Edit::new(edit_type.clone(), x, y, original_content, modified_content);
 
                 match &mut chunk {
                     // add edit to chunk
-                    Some(chunk) => { chunk.join(edit) }
+                    Some(chunk) => chunk.join(edit),
                     // first edit of chunk, so set chunk
-                    None => { chunk = Some(edit) }
+                    None => chunk = Some(edit),
                 }
-            },
+            }
             None => {
                 if let Some(inner_chunk) = &chunk {
                     // add chunk to diff and reset chunk
