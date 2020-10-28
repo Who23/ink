@@ -139,7 +139,7 @@ pub mod myers {
         use crate::diff::algo::myers;
         use crate::diff::edit::{Edit, HalfEdit, Operation};
         #[test]
-        fn create_edits_myers_algo() {
+        fn myers_creating_edits_replace_lines() {
             const A: [&str; 8] = [
                 "The small cactus sat in a",
                 "pot full of sand and dirt",
@@ -213,105 +213,81 @@ pub mod myers {
         }
 
         #[test]
-        fn creating_diff_add_line() {
-            /*
+        fn myers_creating_edit_add_line() {
             const A: [&str; 2] = ["this is a line", "another line"];
             const B: [&str; 3] = ["this is a line", "new line!", "another line"];
 
-            let diff = Diff::from(&A, &B);
-
-            let mut expected_edits = Vec::new();
-
-            expected_edits.push(Edit {
-                content: "new line!\n".to_string(),
-                line_start: 1,
-                line_end: 1,
-                operation: EditOp::Insert
-            });
-
-            assert_eq!(diff.edits, expected_edits);
-            */
-            panic!();
+            assert_eq!(
+                myers::from(&A, &B),
+                vec![
+                    Edit {
+                        op: Operation::Insert,
+                        original: HalfEdit { line: 1, content: vec![] },
+                        modified: HalfEdit { line: 1, content: vec!["new line!".to_string()] }
+                    }
+                ]
+            );
         }
 
         #[test]
-        fn creating_diff_add_multiple_lines() {
-            /*
+        fn myers_creating_edits_add_multiple_lines() {
             const A: [&str; 2] = ["this is a line", "another line"];
             const B: [&str; 5] = ["this is a line", "new line!", "woah another", "another line", "one after"];
 
-            let diff = Diff::from(&A, &B);
-
-            let mut expected_edits = Vec::new();
-
-            expected_edits.push(Edit {
-                content: "new line!\nwoah another\n".to_string(),
-                line_start: 1,
-                line_end: 2,
-                operation: EditOp::Insert
-            });
-
-            expected_edits.push(Edit {
-                content: "one after\n".to_string(),
-                line_start: 2,
-                line_end: 2,
-                operation: EditOp::Insert
-            });
-
-            assert_eq!(diff.edits, expected_edits);
-            */
-            panic!();
+            assert_eq!(
+                myers::from(&A, &B), 
+                vec![
+                    Edit {
+                        op: Operation::Insert,
+                        original: HalfEdit { line: 1, content: vec![] },
+                        modified: HalfEdit { line: 1, content: vec!["new line!".to_string(), "woah another".to_string()] }
+                    },
+                    Edit {
+                        op: Operation::Insert,
+                        original: HalfEdit { line: 2, content: vec![] },
+                        modified: HalfEdit { line: 4, content: vec!["one after".to_string()] }
+                    }
+                ]
+            );
         }
 
         #[test]
-        fn creating_diff_delete_line() {
-            /*
+        fn myers_creating_edit_delete_line() {
             const A: [&str; 3] = ["this is a line", "new line!", "another line"];
             const B: [&str; 2] = ["this is a line", "another line"];
 
-            let diff = Diff::from(&A, &B);
-
-            let mut expected_edits = Vec::new();
-
-            expected_edits.push(Edit {
-                content: "new line!\n".to_string(),
-                line_start: 1,
-                line_end: 1,
-                operation: EditOp::Delete
-            });
-
-            assert_eq!(diff.edits, expected_edits);
-            */
-            panic!();
+            assert_eq!(
+                myers::from(&A, &B),
+                vec![
+                    Edit {
+                        op: Operation::Delete,
+                        original: HalfEdit { line: 1, content: vec!["new line!".to_string()] },
+                        modified: HalfEdit { line: 1, content: vec![] }
+                    }
+                ] 
+            );
         }
 
         #[test]
-        fn creating_diff_delete_multiple_lines() {
-            /*
+        fn myers_creating_edit_delete_multiple_lines() {
             const A: [&str; 6] = ["this is a line", "new line!", "woah another", "another line", "one after", "and another!!"];
             const B: [&str; 2] = ["this is a line", "another line"];
 
-            let diff = Diff::from(&A, &B);
-
-            let mut expected_edits = Vec::new();
-
-            expected_edits.push(Edit {
-                content: "new line!\nwoah another\n".to_string(),
-                line_start: 1,
-                line_end: 2,
-                operation: EditOp::Delete
-            });
-
-            expected_edits.push(Edit {
-                content: "one after\nand another!!\n".to_string(),
-                line_start: 4,
-                line_end: 5,
-                operation: EditOp::Delete
-            });
-
-            assert_eq!(diff.edits, expected_edits);
-            */
-            panic!();
+            assert_eq!(
+                myers::from(&A, &B),
+                vec![
+                    Edit {
+                        op: Operation::Delete,
+                        original: HalfEdit { line: 1, content: vec!["new line!".to_string(), "woah another".to_string()] },
+                        modified: HalfEdit { line: 1, content: vec![] }
+                    },
+                    Edit {
+                        op: Operation::Delete,
+                        original: HalfEdit { line: 4, content: vec!["one after".to_string(), "and another!!".to_string()] },
+                        modified: HalfEdit { line: 2, content: vec![] }
+                    }
+                ] 
+            );
         }
     }
 }

@@ -88,3 +88,59 @@ impl Edit {
         */
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn edit_join_insert_and_delete() {
+        let mut insert = Edit {
+            op: Operation::Insert,
+            original: HalfEdit { line: 0, content: vec![] },
+            modified: HalfEdit { line: 0, content: vec!["boop".to_string()] },
+        };
+
+        let delete = Edit {
+            op: Operation::Delete,
+            original: HalfEdit { line: 0, content: vec!["bap".to_string()] },
+            modified: HalfEdit { line: 0, content: vec![] },
+        };
+
+        insert.join(delete);
+
+        assert_eq!(
+            insert,
+            Edit {
+                op: Operation::Replace,
+                original: HalfEdit { line: 0, content: vec!["bap".to_string()] },
+                modified: HalfEdit { line: 0, content: vec!["boop".to_string()] },
+            }
+        )
+    }
+
+    #[test]
+    fn edit_join_insert_and_insert() {
+        let mut insert = Edit {
+            op: Operation::Insert,
+            original: HalfEdit { line: 0, content: vec![] },
+            modified: HalfEdit { line: 0, content: vec!["boop".to_string()] },
+        };
+
+        let second_insert = Edit {
+            op: Operation::Delete,
+            original: HalfEdit { line: 0, content: vec![] },
+            modified: HalfEdit { line: 1, content: vec!["bap".to_string()] },
+        };
+
+        insert.join(second_insert);
+
+        assert_eq!(
+            insert,
+            Edit {
+                op: Operation::Insert,
+                original: HalfEdit { line: 0, content: vec![] },
+                modified: HalfEdit { line: 0, content: vec!["boop".to_string(), "bap".to_string()] },
+            }
+        )
+    }
+}
