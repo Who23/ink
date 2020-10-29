@@ -15,6 +15,12 @@ pub struct HalfEdit {
     pub content: Vec<String>,
 }
 
+impl HalfEdit {
+    fn joinable(&self, edit: &HalfEdit) -> bool {
+        self.line + self.content.len() == edit.line || edit.line + edit.content.len() == self.line
+    }
+}
+
 /// One section of a diff which involves adding or removing, or replacing
 /// or more lines.
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -60,15 +66,28 @@ impl Edit {
         }
     }
 
-    pub fn join(&mut self, edit: Edit) {
+    /// 
+    fn joinable(&self, edit: &Edit) -> bool {
+        self.original.joinable(&edit.original) && self.modified.joinable(&edit.modified)
+    }
+
+    pub fn join(&mut self, edit: Edit) -> Result<(), &'static str> {
+        if !self.joinable(&edit) {
+            return Err("edits are not joinable")
+        }
+
         self.original.content.extend(edit.original.content);
+        self.original.line = std::cmp::min(self.original.line, edit.original.line);
+
         self.modified.content.extend(edit.modified.content);
+        self.modified.line = std::cmp::min(self.modified.line, edit.modified.line);
 
         if !self.original.content.is_empty() && !self.modified.content.is_empty() {
             self.op = Operation::Replace
         }
-    }
 
+        Ok(())
+    }
     
     /// Creating an 'edit script' from a single edit,
     /// based on the UNIX diff utility's edit script,
@@ -106,7 +125,7 @@ mod tests {
             modified: HalfEdit { line: 0, content: vec![] },
         };
 
-        insert.join(delete);
+        insert.join(delete).unwrap();
 
         assert_eq!(
             insert,
@@ -132,7 +151,7 @@ mod tests {
             modified: HalfEdit { line: 1, content: vec!["bap".to_string()] },
         };
 
-        insert.join(second_insert);
+        insert.join(second_insert).unwrap();
 
         assert_eq!(
             insert,

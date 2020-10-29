@@ -329,11 +329,12 @@ fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec
                 } else {
                     vec![]
                 };
+
                 let edit = Edit::new(edit_type.clone(), x, y, original_content, modified_content);
 
                 match &mut chunk {
-                    // add edit to chunk
-                    Some(chunk) => chunk.join(edit),
+                    // add edit to chunk. The way the path is created, this should never fail.
+                    Some(chunk) => chunk.join(edit).unwrap(),
                     // first edit of chunk, so set chunk
                     None => chunk = Some(edit),
                 }
