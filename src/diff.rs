@@ -7,7 +7,7 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
-use edit::Edit;
+use edit::{Edit, Operation};
 
 /// Struct that holds the diff of two files.
 ///
@@ -97,71 +97,69 @@ impl Diff {
     /// Applies a series of edits to a file
     /// Goes line by line through the file to add edits in a tmp file,
     /// then overwriting the normal file with the tmp file.
-    fn apply_edits(edits: &[Edit], file_path: &Path) -> io::Result<()> {
-        unimplemented!();
-        /*
-        let tmp_path = file_path.with_extension(".tmp");
-
+    fn apply_edits(edits: &[Edit], file_path: &Path) -> Result<(), Box<dyn Error>> {
         // check if there are any edits
         if edits.is_empty() {
             return Ok(());
         }
 
-        // open up the file to read and a tmp file to write to
+        // open up the original file and the temp file which we are writing to
         let file = BufReader::new(File::open(file_path)?);
+
+        let tmp_path = file_path.with_extension(".tmp");
         let mut tmp = BufWriter::new(File::create(&tmp_path)?);
 
-        let mut lines_to_delete = 0; // if deleting lines, how many are left to delete
-        let mut current_edit_index = 0; // current edit we're on
-        let mut current_edit: &Edit;
+        let mut edit_index = 0;
+        let mut skipped_lines_left = 0;
 
         for (line_number, line) in file.lines().enumerate() {
             let line = line?;
+            let edit = &edits[edit_index];
 
-            // firstly, if there are lines to delete, 'delete'
-            // the line by not writing it to the tmp file & going to the next
-            if lines_to_delete > 0 {
-                lines_to_delete -= 1;
+            // if previous edits had us delete this line, don't write it 
+            // and move to the next line
+            if skipped_lines_left > 0 {
+                skipped_lines_left -= 1;
                 continue;
             }
 
-            current_edit = &edits[current_edit_index];
-
-            // check if this line has an edit on it (edits are always ordered by line #)
-            if line_number == current_edit.line_start {
-                match current_edit.operation {
-                    EditOp::Insert => {
-                        // write the inserted lines into the tmp file
-                        tmp.write_all(current_edit.content.as_bytes())?;
+            // check if there is an edit operating on this line.
+            if edit.original.line == line_number {
+                match edit.op {
+                    Operation::Insert => {
+                        // nothing to delete, only add the original line + inserted lines
                         tmp.write_all((line + "\n").as_bytes())?;
-                    }
-                    EditOp::Delete => {
-                        // how many lines we should be deleting? if the end == the start, then we
-                        // only delete this line (sets to 0)
-                        lines_to_delete = current_edit.line_end - current_edit.line_start;
+                        tmp.write_all((edit.modified.content.join("\n") + "\n").as_bytes())?;
+                    },
+                    Operation::Delete => {
+                        // skip adding both this line and future lines. 
+                        // Subtract one because we are also not writing this line.
+                        skipped_lines_left = edit.original.content.len() - 1;
+                    },
+                    Operation::Replace => {
+                        // skip adding both this line and future lines, instead add inserted lines.
+                        // Subtract one because we are also not writing this line.
+                        skipped_lines_left = edit.original.content.len() - 1;
+                        tmp.write_all((edit.modified.content.join("\n") + "\n").as_bytes())?;
                     }
                 }
-
-                current_edit_index += 1;
+                edit_index += 1;
             } else {
-                // if there wasn't an edit, write the current line
+                // write line to file
                 tmp.write_all((line + "\n").as_bytes())?;
             }
         }
 
-        // there might be a insert edit left over.
-        // Add that to the tmp file
-        if current_edit_index == edits.len() - 1 {
-            current_edit = &edits[current_edit_index];
-            if current_edit.operation == EditOp::Insert {
-                tmp.write_all(current_edit.content.as_bytes())?;
-            } else {
-                panic!("the last one is a delete??");
-            }
-        } else if current_edit_index != edits.len() {
-            panic!("edits left after??");
-        }
+        if edit_index == edits.len() - 1 && edits[edit_index].op == Operation::Insert {
+            tmp.write_all((edits[edit_index].modified.content.join("\n") + "\n").as_bytes())?;
 
+        } else if edit_index < edits.len() - 1 {
+            return Err("Too many edits left over".into())
+
+        } else if edit_index == edits.len() - 1 && edits[edit_index].op != Operation::Insert {
+            return Err("Wrong edit type left over".into())
+        }
+        
         // drop the writer to the tmp file
         std::mem::drop(tmp);
 
@@ -169,27 +167,44 @@ impl Diff {
         fs::rename(tmp_path, file_path)?;
 
         Ok(())
-        */
     }
 
     /// Apply a diff to a file
-    pub fn apply(&self, file_path: &Path) -> io::Result<()> {
+    pub fn apply(&self, file_path: &Path) -> Result<(), Box<dyn Error>> {
         Diff::apply_edits(&self.edits, file_path)
     }
 
     /// Rollback a diff on a file by applying the reverse diff
-    pub fn rollback(&self, file_path: &Path) -> io::Result<()> {
-        unimplemented!();
+    pub fn rollback(&self, file_path: &Path) -> Result<(), Box<dyn Error>> {
+        let mut rollback_edits = Vec::with_capacity(self.edits.len());
+
+        for edit in &self.edits {
+            let new_op = match &edit.op {
+                Operation::Insert => Operation::Delete,
+                Operation::Delete => Operation::Insert,
+                Operation::Replace => Operation::Replace
+            };
+
+            rollback_edits.push(Edit {
+                op: new_op,
+                original: edit.modified.clone(),
+                modified: edit.original.clone()
+            });
+        }
+
+        Diff::apply_edits(&rollback_edits, file_path)?;
+
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_diff_apply() {
-        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -227,13 +242,10 @@ mod tests {
         }
 
         assert_eq!(file_len, B.len());
-        */
-        panic!();
     }
 
     #[test]
     fn test_diff_rollback() {
-        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -271,8 +283,6 @@ mod tests {
         }
 
         assert_eq!(file_len, A.len())
-        */
-        panic!();
     }
 
     #[test]
