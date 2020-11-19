@@ -1,3 +1,6 @@
+use crate::diff::parser;
+use std::error::Error;
+
 /// The type of edit - Insertion, Deletion, or Replacement
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Operation {
@@ -93,18 +96,69 @@ impl Edit {
     /// based on the UNIX diff utility's edit script,
     /// though this is not an 'ed' compatible edit script
     pub fn to_edit_script(&self) -> String {
-        unimplemented!();
-        /*
-        let op = match self.operation {
-            EditOp::Insert => "a",
-            EditOp::Delete => "d",
+        let op = match self.op {
+            Operation::Insert => "a",
+            Operation::Delete => "d",
+            Operation::Replace => "r",
         };
 
         format!(
-            "{},{},{}\n{}",
-            self.line_start, self.line_end, op, self.content
+            "{},{}{}{},{}\n{}\n---\n{}",
+            self.original.line,
+            self.original.line + self.original.content.len() - 1,
+            op,
+            self.modified.line,
+            self.modified.line + self.modified.content.len() - 1,
+            // this just prepends a > or a < to every line
+            self.original.content.iter().map(|line| "< ".to_string() + line).collect::<Vec<String>>().join("\n"),
+            self.modified.content.iter().map(|line| "> ".to_string() + line).collect::<Vec<String>>().join("\n"),
         )
-        */
+    }
+
+    pub fn parse_edit_script(script: &str) -> Result<(&str, Edit), Box<dyn Error>> {
+        let (r, og_line_start) = parser::read_usize(script)?;
+        let r                  = parser::skip_sequence(r, ",")?;
+        let (r, og_line_end)   = parser::read_usize(r)?;
+
+        let (r, op) = match r.chars().next().ok_or("No operation")? {
+            'r' => Ok((&r[1..], Operation::Replace)),
+            'a' => Ok((&r[1..], Operation::Insert)),
+            'd' => Ok((&r[1..], Operation::Delete)),
+            _ => Err("Invalid Operation")
+        }?;
+
+        let (r, mod_line_start) = parser::read_usize(r)?;
+        let r                   = parser::skip_sequence(r, ",")?;
+        let (r, mod_line_end)   = parser::read_usize(r)?;
+
+        let r                       = parser::skip_sequence(r, "\n")?;
+        let (r, og_content_ref)     = parser::read_lines(r, og_line_end - og_line_start + 1)?;
+        let r                       = parser::skip_sequence(r, "---\n")?;
+        let (r, mod_content_ref)    = parser::read_lines(r, mod_line_end - mod_line_start + 1)?;
+
+        let mut og_content = Vec::with_capacity(og_content_ref.len());
+        for line in og_content_ref {
+            og_content.push(line.strip_prefix("< ").ok_or("Content formatted incorrectly")?.to_string());
+        }
+
+        let mut mod_content = Vec::with_capacity(mod_content_ref.len());
+        for line in mod_content_ref {
+            mod_content.push(line.strip_prefix("> ").ok_or("Content formatted incorrectly")?.to_string());
+        }
+
+        let edit = Edit {
+            op,
+            original: HalfEdit {
+                line: og_line_start,
+                content: og_content
+            },
+            modified: HalfEdit {
+                line: mod_line_start,
+                content: mod_content
+            }
+        };
+
+        Ok((r, edit))
     }
 }
 

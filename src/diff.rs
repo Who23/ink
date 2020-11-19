@@ -1,10 +1,11 @@
 //! Tools for creating diffs, done through the `Diff` struct
 mod algo;
 mod edit;
+mod parser;
 
 use std::error::Error;
 use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
 use edit::{Edit, Operation};
@@ -25,63 +26,18 @@ impl Diff {
     }
 
     /// Deserialize an edit script to create a diff
-    pub fn from_edit_script<S: AsRef<str>>(edit_script: &[S]) -> Result<Diff, Box<dyn Error>> {
-        unimplemented!();
-        /*
+    pub fn from_edit_script<S: AsRef<str>>(edit_script: S) -> Result<Diff, Box<dyn Error>> {
+        let mut remainder = edit_script.as_ref();
         let mut edits = Vec::new();
 
-        // store what will be in the edit through the loop
-        let mut line_start = 0;
-        let mut line_end = 0;
-        let mut content = String::new();
-        let mut content_lines = 0;
-        let mut operation = EditOp::Insert;
-
-        for line in edit_script {
-            // if we're on a content line, add it to the buffer
-            if content_lines > 0 {
-                content_lines -= 1;
-                content.push_str(line.as_ref());
-                content.push_str("\n");
-                continue;
-            }
-
-            // means we have gotten through the lines of content
-            // (last part of the edit). add the edit to the vector
-            if !content.is_empty() {
-                edits.push(Edit {
-                    operation,
-                    line_start,
-                    line_end,
-                    content: content.clone(),
-                });
-                content.clear();
-            }
-
-            // get the starting line #, ending line #, & type of edit
-            let components: Vec<&str> = line.as_ref().split(',').collect();
-            line_start = components[0].parse::<usize>()?;
-            line_end = components[1].parse::<usize>()?;
-            operation = match components[2] {
-                "a" => Ok(EditOp::Insert),
-                "d" => Ok(EditOp::Delete),
-                _ => Err("invalid edit script"),
-            }?;
-
-            // find how many lines of content there will be
-            content_lines = line_end - line_start + 1;
+        while !remainder.is_empty() {
+            let (r, e) = Edit::parse_edit_script(remainder)?;
+            edits.push(e);
+            remainder = r;
+            dbg!(remainder);
         }
 
-        // add the last edit
-        edits.push(Edit {
-            operation,
-            line_start,
-            line_end,
-            content,
-        });
-
         Ok(Diff { edits })
-        */
     }
 
     /// Serialize an 'edit script' for the diff.
@@ -91,7 +47,7 @@ impl Diff {
             .iter()
             .map(|e| e.to_edit_script())
             .collect::<Vec<String>>()
-            .join("")
+            .join("\n")
     }
 
     /// Applies a series of edits to a file
@@ -201,6 +157,7 @@ impl Diff {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diff::edit::HalfEdit;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -227,7 +184,7 @@ mod tests {
         let diff = Diff::from(&A, &B);
 
         let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
-        write!(f, "{}", A.join("\n"));
+        write!(f, "{}", A.join("\n")).unwrap();
 
         let f_path = f.into_temp_path();
 
@@ -268,7 +225,7 @@ mod tests {
         let diff = Diff::from(&A, &B);
 
         let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
-        write!(f, "{}", B.join("\n"));
+        write!(f, "{}", B.join("\n")).unwrap();
 
         let f_path = f.into_temp_path();
 
@@ -287,7 +244,6 @@ mod tests {
 
     #[test]
     fn to_edit_script() {
-        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -311,100 +267,93 @@ mod tests {
 
         let es = diff.edit_script();
 
-        let expected_es = ["0,0,d",
-                           "The small cactus sat in a",
-                           "1,1,a",
-                           "The small green cactus sat in a",
-                           "3,4,d",
-                           "Next to it was a small basil",
-                           "plant in a similar pot",
-                           "5,7,a",
-                           "In another part of the house,",
-                           "another house plant grew in a",
-                           "much bigger pot",
-                           "7,7,d",
-                           "of sunshine and water",
-                           "8,8,a",
-                           "of water and sunshine",
-                           ""];
+        let expected_es = ["0,0r0,0",
+                           "< The small cactus sat in a",
+                           "---",
+                           "> The small green cactus sat in a",
+                           "3,4r3,5",
+                           "< Next to it was a small basil",
+                           "< plant in a similar pot",
+                           "---",
+                           "> In another part of the house,",
+                           "> another house plant grew in a",
+                           "> much bigger pot",
+                           "7,7r8,8",
+                           "< of sunshine and water",
+                           "---",
+                           "> of water and sunshine"];
 
         assert_eq!(es, expected_es.join("\n"));
-        */
-        panic!();
     }
 
     #[test]
     fn from_edit_script() {
-        /*
-        let es = ["0,0,d",
-                 "The small cactus sat in a",
-                 "1,1,a",
-                 "The small green cactus sat in a",
-                 "3,4,d",
-                 "Next to it was a small basil",
-                 "plant in a similar pot",
-                 "5,7,a",
-                 "In another part of the house,",
-                 "another house plant grew in a",
-                 "much bigger pot",
-                 "7,7,d",
-                 "of sunshine and water",
-                 "8,8,a",
-                 "of water and sunshine"];
+        let es = ["0,0r0,0",
+                  "< The small cactus sat in a",
+                  "---",
+                  "> The small green cactus sat in a",
+                  "3,4r3,5",
+                  "< Next to it was a small basil",
+                  "< plant in a similar pot",
+                  "---",
+                  "> In another part of the house,",
+                  "> another house plant grew in a",
+                  "> much bigger pot",
+                  "7,7r8,8",
+                  "< of sunshine and water",
+                  "---",
+                  "> of water and sunshine"];
 
-        let diff = Diff::from_edit_script(&es).unwrap();
+        let diff = Diff::from_edit_script(&es.join("\n")).unwrap();
 
-        let expected_edits = [
-            Edit {
-                operation: EditOp::Delete,
-                line_start: 0,
-                line_end: 0,
-                content: String::from("The small cactus sat in a\n")
-            },
-            Edit {
-                operation: EditOp::Insert,
-                line_start: 1,
-                line_end: 1,
-                content: String::from("The small green cactus sat in a\n")
-            },
-            Edit {
-                operation: EditOp::Delete,
-                line_start: 3,
-                line_end: 4,
-                content: String::from("Next to it was a small basil\nplant in a similar pot\n")
-            },
-            Edit {
-                operation: EditOp::Insert,
-                line_start: 5,
-                line_end: 7,
-                content: String::from("In another part of the house,\nanother house plant grew in a\nmuch bigger pot\n")
-            },
-            Edit {
-                operation: EditOp::Delete,
-                line_start: 7,
-                line_end: 7,
-                content: String::from("of sunshine and water\n")
-            },
-            Edit {
-                operation: EditOp::Insert,
-                line_start: 8,
-                line_end: 8,
-                content: String::from("of water and sunshine\n")
-            },
-        ];
+        assert_eq!(
+            diff.edits,
+            vec![
+                Edit {
+                    op: Operation::Replace,
+                    original: HalfEdit {
+                        line: 0,
+                        content: vec!["The small cactus sat in a".to_string()]
+                    },
+                    modified: HalfEdit {
+                        line: 0,
+                        content: vec!["The small green cactus sat in a".to_string()]
+                    }
+                },
+                Edit {
+                    op: Operation::Replace,
+                    original: HalfEdit {
+                        line: 3,
+                        content: vec!["Next to it was a small basil".to_string(),
+                                      "plant in a similar pot".to_string()]
+                    },
+                    modified: HalfEdit {
+                        line: 3,
+                        content: vec!["In another part of the house,".to_string(),
+                                      "another house plant grew in a".to_string(),
+                                      "much bigger pot".to_string()]
+                    }
+                },
+                Edit {
+                    op: Operation::Replace,
+                        original: HalfEdit {
+                            line: 7,
+                            content: vec!["of sunshine and water".to_string()]
+                        },
+                        modified: HalfEdit {
+                            line: 8,
+                            content: vec!["of water and sunshine".to_string()]
+                        }
+                },
+            ]
+        );
 
-        for (index, edit) in diff.edits.iter().enumerate() {
-            assert_eq!(edit, &expected_edits[index]);
-        }
-
-        assert_eq!(diff.edits.len(), expected_edits.len());
-        */
-        panic!();
+        assert_eq!(diff.edits.len(), 3);
     }
 
+    /*
     #[test]
     fn to_and_from_edit_script() {
-        /*
         const A : [&str; 8] = ["The small cactus sat in a",
                  "pot full of sand and dirt",
                  "",
@@ -431,9 +380,8 @@ mod tests {
         let second_diff = Diff::from_edit_script(&edit_lines).unwrap();
 
         assert_eq!(diff.edits, second_diff.edits);
-        */
-        panic!();
     }
+    */
 
     // ---------- A ------------
     // The small cactus sat in a
