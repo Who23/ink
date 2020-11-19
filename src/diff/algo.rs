@@ -219,33 +219,55 @@ pub mod myers {
 
             assert_eq!(
                 myers::from(&A, &B),
-                vec![
-                    Edit {
-                        op: Operation::Insert,
-                        original: HalfEdit { line: 1, content: vec![] },
-                        modified: HalfEdit { line: 1, content: vec!["new line!".to_string()] }
+                vec![Edit {
+                    op: Operation::Insert,
+                    original: HalfEdit {
+                        line: 1,
+                        content: vec![]
+                    },
+                    modified: HalfEdit {
+                        line: 1,
+                        content: vec!["new line!".to_string()]
                     }
-                ]
+                }]
             );
         }
 
         #[test]
         fn myers_creating_edits_add_multiple_lines() {
             const A: [&str; 2] = ["this is a line", "another line"];
-            const B: [&str; 5] = ["this is a line", "new line!", "woah another", "another line", "one after"];
+            const B: [&str; 5] = [
+                "this is a line",
+                "new line!",
+                "woah another",
+                "another line",
+                "one after",
+            ];
 
             assert_eq!(
-                myers::from(&A, &B), 
+                myers::from(&A, &B),
                 vec![
                     Edit {
                         op: Operation::Insert,
-                        original: HalfEdit { line: 1, content: vec![] },
-                        modified: HalfEdit { line: 1, content: vec!["new line!".to_string(), "woah another".to_string()] }
+                        original: HalfEdit {
+                            line: 1,
+                            content: vec![]
+                        },
+                        modified: HalfEdit {
+                            line: 1,
+                            content: vec!["new line!".to_string(), "woah another".to_string()]
+                        }
                     },
                     Edit {
                         op: Operation::Insert,
-                        original: HalfEdit { line: 2, content: vec![] },
-                        modified: HalfEdit { line: 4, content: vec!["one after".to_string()] }
+                        original: HalfEdit {
+                            line: 2,
+                            content: vec![]
+                        },
+                        modified: HalfEdit {
+                            line: 4,
+                            content: vec!["one after".to_string()]
+                        }
                     }
                 ]
             );
@@ -258,19 +280,30 @@ pub mod myers {
 
             assert_eq!(
                 myers::from(&A, &B),
-                vec![
-                    Edit {
-                        op: Operation::Delete,
-                        original: HalfEdit { line: 1, content: vec!["new line!".to_string()] },
-                        modified: HalfEdit { line: 1, content: vec![] }
+                vec![Edit {
+                    op: Operation::Delete,
+                    original: HalfEdit {
+                        line: 1,
+                        content: vec!["new line!".to_string()]
+                    },
+                    modified: HalfEdit {
+                        line: 1,
+                        content: vec![]
                     }
-                ] 
+                }]
             );
         }
 
         #[test]
         fn myers_creating_edit_delete_multiple_lines() {
-            const A: [&str; 6] = ["this is a line", "new line!", "woah another", "another line", "one after", "and another!!"];
+            const A: [&str; 6] = [
+                "this is a line",
+                "new line!",
+                "woah another",
+                "another line",
+                "one after",
+                "and another!!",
+            ];
             const B: [&str; 2] = ["this is a line", "another line"];
 
             assert_eq!(
@@ -278,15 +311,27 @@ pub mod myers {
                 vec![
                     Edit {
                         op: Operation::Delete,
-                        original: HalfEdit { line: 1, content: vec!["new line!".to_string(), "woah another".to_string()] },
-                        modified: HalfEdit { line: 1, content: vec![] }
+                        original: HalfEdit {
+                            line: 1,
+                            content: vec!["new line!".to_string(), "woah another".to_string()]
+                        },
+                        modified: HalfEdit {
+                            line: 1,
+                            content: vec![]
+                        }
                     },
                     Edit {
                         op: Operation::Delete,
-                        original: HalfEdit { line: 4, content: vec!["one after".to_string(), "and another!!".to_string()] },
-                        modified: HalfEdit { line: 2, content: vec![] }
+                        original: HalfEdit {
+                            line: 4,
+                            content: vec!["one after".to_string(), "and another!!".to_string()]
+                        },
+                        modified: HalfEdit {
+                            line: 2,
+                            content: vec![]
+                        }
                     }
-                ] 
+                ]
             );
         }
     }
@@ -318,7 +363,6 @@ fn create_edits<S: AsRef<str>>(path: &[(usize, usize)], a: &[S], b: &[S]) -> Vec
         match &edit_type {
             Some(edit_type) => {
                 // constuct edit
-
                 let original_content = if x != a.len() {
                     vec![a[x].as_ref().to_string()]
                 } else {
