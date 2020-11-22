@@ -371,7 +371,6 @@ mod tests {
         assert_eq!(diff.edits.len(), 3);
     }
 
-    /*
     #[test]
     fn to_and_from_edit_script() {
         const A : [&str; 8] = ["The small cactus sat in a",
@@ -394,14 +393,49 @@ mod tests {
                  "of water and sunshine"];
 
         let diff = Diff::from(&A, &B);
-        let edits = diff.edit_script();
-        let edit_lines = edits.lines().collect::<Vec<&str>>();
+        let edit_script = diff.edit_script();
 
-        let second_diff = Diff::from_edit_script(&edit_lines).unwrap();
+        let second_diff = Diff::from_edit_script(&edit_script).unwrap();
 
         assert_eq!(diff.edits, second_diff.edits);
     }
-    */
+
+    #[test]
+    fn diff_trailing_newline() {
+        let a : Vec<&str> = "hi\nhello".split('\n').collect();
+        let b : Vec<&str> = "hi\nhello\n".split('\n').collect();
+
+        let diff = Diff::from(&a, &b);
+
+        assert_ne!(diff.edits.len(), 0);
+    }
+
+    #[test]
+    fn apply_trailing_newlines() {
+        let a : Vec<&str> = "hi\nhello".split('\n').collect();
+        let b : Vec<&str> = "hi\nhello\n".split('\n').collect();
+
+        let diff = Diff::from(&a, &b);
+
+        let mut f = NamedTempFile::new_in("./test_tmp_files").unwrap();
+        write!(f, "{}", a.join("\n")).unwrap();
+
+        let f_path = f.into_temp_path();
+
+        diff.apply(&f_path).unwrap();
+
+        let f = BufReader::new(File::open(&f_path).unwrap());
+        let mut file_len = 0;
+
+        for (index, line) in f.split(b'\n').enumerate() {
+            let line = line.unwrap();
+            let line = std::str::from_utf8(&line).unwrap();
+            assert_eq!(line, b[index]);
+            file_len += 1;
+        }
+
+        assert_eq!(file_len, b.len());
+    }
 
     // ---------- A ------------
     // The small cactus sat in a
