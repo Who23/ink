@@ -1,5 +1,6 @@
 pub mod diff;
 pub mod log;
+pub mod graph;
 
 use std::io;
 
