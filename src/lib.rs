@@ -1,6 +1,5 @@
 pub mod diff;
 pub mod graph;
-mod commit;
 
 use std::fs::{self, File};
 use std::env;
