@@ -75,34 +75,56 @@ impl<N: Node> Graph<N> {
     /// Add an edge between two nodes by ID. Fails if the node IDs are not found.
     /// It does allow a node to create an edge with itself.
     pub fn add_edge(&mut self, from: NodeID, to: NodeID) -> Result<(), &'static str> {
-        self.nodes
-            .get_mut(&from)
-            .ok_or("Invalid Node ID for 'from' node")?
-            .pointing_to()
-            .push(to);
+        if !self.nodes.contains_key(&from) {
+            return Err("Invalid Node ID for 'from' node");
+        }
+        if !self.nodes.contains_key(&to) {
+            return Err("Invalid Node ID for 'to' node");
+        }
 
-        self.nodes
-            .get_mut(&to)
-            .ok_or("Invalid Node ID for 'to' node")?
-            .pointed_to()
-            .push(from);
+        let from_pointing_to = self.nodes.get_mut(&from).unwrap().pointing_to();
+
+        if from_pointing_to.contains(&to) {
+            return Err("'from' node already contains an edge to 'to' node");
+        }
+
+        from_pointing_to.push(to);
+
+        let to_pointed_to = self.nodes.get_mut(&to).unwrap().pointed_to();
+
+        if to_pointed_to.contains(&from) {
+            return Err("'to' node already contains an edge from 'from' node");
+        }
+
+        to_pointed_to.push(from);
 
         Ok(())
     }
 
     /// Remove an edge between two nodes by ID. Fails if the node IDs are not found.
     pub fn remove_edge(&mut self, from: NodeID, to: NodeID) -> Result<(), &'static str> {
-        self.nodes
-            .get_mut(&from)
-            .ok_or("Invalid Node ID for 'from' node")?
-            .pointing_to()
-            .retain(|elem| elem != &to);
+        if !self.nodes.contains_key(&from) {
+            return Err("Invalid Node ID for 'from' node");
+        }
+        if !self.nodes.contains_key(&to) {
+            return Err("Invalid Node ID for 'to' node");
+        }
 
-        self.nodes
-            .get_mut(&to)
-            .ok_or("Invalid Node ID for 'to' node")?
-            .pointed_to()
-            .retain(|elem| elem != &from);
+        let from_pointing_to = self.nodes.get_mut(&from).unwrap().pointing_to();
+
+        if !from_pointing_to.contains(&to) {
+            return Err("No edge exists between the 'from' node and the 'to' node");
+        }
+
+        from_pointing_to.retain(|elem| elem != &to);
+
+        let to_pointed_to = self.nodes.get_mut(&to).unwrap().pointed_to();
+
+        if !to_pointed_to.contains(&from) {
+            return Err("No edge exists between the 'to' node and the 'from' node");
+        }
+
+        to_pointed_to.retain(|elem| elem != &from);
 
         Ok(())
     }
@@ -282,15 +304,22 @@ mod tests {
         let mut graph: Graph<TestNode> = Graph::new();
         let first_id = graph.add_node(5);
         let second_id = graph.add_node(3);
+        graph.add_edge(first_id, second_id).unwrap();
 
         assert_eq!(
             graph.add_edge(10, second_id),
             Err("Invalid Node ID for 'from' node")
         );
+
         assert_eq!(
             graph.add_edge(first_id, 10),
             Err("Invalid Node ID for 'to' node")
         );
+
+        assert_eq!(
+            graph.add_edge(first_id, second_id),
+            Err("'from' node already contains an edge to 'to' node")
+        )
     }
 
     #[test]
@@ -339,7 +368,6 @@ mod tests {
         let first_id = graph.add_node(5);
         let second_id = graph.add_node(3);
         graph.add_edge(first_id, second_id).unwrap();
-        graph.add_edge(second_id, first_id).unwrap();
 
         assert_eq!(
             graph.remove_edge(10, second_id),
@@ -350,5 +378,12 @@ mod tests {
             graph.remove_edge(first_id, 10),
             Err("Invalid Node ID for 'to' node")
         );
+
+        graph.remove_edge(first_id, second_id).unwrap();
+
+        assert_eq!(
+            graph.remove_edge(first_id, second_id),
+            Err("No edge exists between the 'from' node and the 'to' node")
+        )
     }
 }
