@@ -373,24 +373,28 @@ mod tests {
 
     #[test]
     fn to_and_from_edit_script() {
-        const A : [&str; 8] = ["The small cactus sat in a",
-                 "pot full of sand and dirt",
-                 "",
-                 "Next to it was a small basil",
-                 "plant in a similar pot",
-                 "",
-                 "Everyday, the plants got plenty",
-                 "of sunshine and water"];
+        const A: [&str; 8] = [
+            "The small cactus sat in a",
+            "pot full of sand and dirt",
+            "",
+            "Next to it was a small basil",
+            "plant in a similar pot",
+            "",
+            "Everyday, the plants got plenty",
+            "of sunshine and water",
+        ];
 
-        const B : [&str; 9] = ["The small green cactus sat in a",
-                 "pot full of sand and dirt",
-                 "",
-                 "In another part of the house,",
-                 "another house plant grew in a",
-                 "much bigger pot",
-                 "",
-                 "Everyday, the plants got plenty",
-                 "of water and sunshine"];
+        const B: [&str; 9] = [
+            "The small green cactus sat in a",
+            "pot full of sand and dirt",
+            "",
+            "In another part of the house,",
+            "another house plant grew in a",
+            "much bigger pot",
+            "",
+            "Everyday, the plants got plenty",
+            "of water and sunshine",
+        ];
 
         let diff = Diff::from(&A, &B);
         let edit_script = diff.edit_script();
@@ -402,8 +406,8 @@ mod tests {
 
     #[test]
     fn diff_trailing_newline() {
-        let a : Vec<&str> = "hi\nhello".split('\n').collect();
-        let b : Vec<&str> = "hi\nhello\n".split('\n').collect();
+        let a: Vec<&str> = "hi\nhello".split('\n').collect();
+        let b: Vec<&str> = "hi\nhello\n".split('\n').collect();
 
         let diff = Diff::from(&a, &b);
 
@@ -412,8 +416,8 @@ mod tests {
 
     #[test]
     fn apply_trailing_newlines() {
-        let a : Vec<&str> = "hi\nhello".split('\n').collect();
-        let b : Vec<&str> = "hi\nhello\n".split('\n').collect();
+        let a: Vec<&str> = "hi\nhello".split('\n').collect();
+        let b: Vec<&str> = "hi\nhello\n".split('\n').collect();
 
         let diff = Diff::from(&a, &b);
 

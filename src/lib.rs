@@ -1,18 +1,17 @@
 pub mod diff;
 pub mod graph;
 
-use std::fs::{self, File};
 use std::env;
-use std::io;
 use std::error::Error;
-use std::path::{PathBuf, Path};
+use std::fs::{self, File};
+use std::io;
+use std::path::{Path, PathBuf};
 
 fn _init() -> Result<(), InkError> {
     // create ./.ink dir
     let ink_dir = env::current_dir()?.join(".ink");
     fs::create_dir(&ink_dir)?;
 
-    
     File::create(&ink_dir.join("graph"))?;
 
     Ok(())
@@ -63,7 +62,6 @@ fn _copy_subdirs(source: &Path, target: &Path) -> Result<(), InkError> {
     }
     Ok(())
 }
-
 
 #[derive(Debug)]
 pub enum InkError {
