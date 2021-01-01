@@ -1,9 +1,11 @@
 use std::path::{PathBuf, Path};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Read};
 use std::os::unix::fs::PermissionsExt;
+use std::error::Error;
 
 use sha2::{Digest, Sha256};
+use hex;
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
@@ -45,5 +47,20 @@ impl FileData {
             path: filepath.to_path_buf(),
             permissions
         })
+    }
+
+    /// Copy the contents of the file this FileData struct
+    /// refers to into a file in the given directory.
+    /// The name of the file will be it's SHA256 hash.
+    pub fn write_file_content(&self, dirpath: &Path) -> Result<(), Box<dyn Error>> {
+        if !(dirpath.exists() && dirpath.is_dir()) {
+            return Err("Cannot write file to given path".into());
+        }
+
+        let filepath = dirpath.join(hex::encode(&self.hash));
+
+        fs::copy(&self.path, filepath)?;
+
+        Ok(())
     }
 }
