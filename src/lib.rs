@@ -1,5 +1,6 @@
 pub mod diff;
 pub mod graph;
+pub mod filedata;
 
 use std::env;
 use std::error::Error;
