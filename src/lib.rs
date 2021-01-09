@@ -1,6 +1,7 @@
 pub mod diff;
 pub mod graph;
 pub mod filedata;
+pub mod commit;
 mod utils;
 
 use std::env;
