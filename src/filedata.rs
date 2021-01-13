@@ -4,8 +4,8 @@ use std::io::{self, Read};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use sha2::{Digest, Sha256};
 use hex;
+use sha2::{Digest, Sha256};
 
 use crate::{DATA_EXT, ROOT_DIR};
 
@@ -20,14 +20,14 @@ pub struct FileData {
 }
 
 impl FileData {
-    /// Creates a FileData struct given a filepath. 
+    /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
     pub fn new(filepath: &Path) -> io::Result<FileData> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
         // create buffer for holding chunks of file
-        const BUF_SIZE : usize = 1024 * 128;
+        const BUF_SIZE: usize = 1024 * 128;
         let mut buffer = [0; BUF_SIZE];
 
         // read chunks of the file and update the hash.
@@ -39,15 +39,15 @@ impl FileData {
                 break;
             }
         }
-        
+
         // get the hash and unix permissions of the file.
         let hash = hasher.finalize();
-        let permissions = file.metadata()?.permissions().mode(); 
+        let permissions = file.metadata()?.permissions().mode();
 
         Ok(FileData {
             hash: hash.into(),
             path: filepath.to_path_buf(),
-            permissions
+            permissions,
         })
     }
 

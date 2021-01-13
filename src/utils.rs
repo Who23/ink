@@ -1,6 +1,6 @@
 use std::fs;
-use std::path::{PathBuf, Path};
 use std::io;
+use std::path::{Path, PathBuf};
 
 use crate::InkError;
 

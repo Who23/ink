@@ -1,11 +1,10 @@
-pub mod diff;
-pub mod graph;
-pub mod filedata;
 pub mod commit;
+pub mod diff;
+pub mod filedata;
+pub mod graph;
 mod utils;
 
 use std::env;
-use std::error::Error;
 use std::fs::{self, File};
 use std::io;
 use std::path::PathBuf;

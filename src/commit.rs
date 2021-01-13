@@ -6,7 +6,6 @@ use std::time::SystemTime;
 use crate::filedata::FileData;
 use crate::utils;
 
-
 /// Struct to hold information about a commit
 /// to work with in ink. Stores filedata and time
 /// of commit
