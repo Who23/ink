@@ -8,7 +8,25 @@ use std::env;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    pub static ref ROOT_DIR: Option<PathBuf> = {
+        let ink_dir = env::current_dir().unwrap().join(".ink");
+
+        if ink_dir.exists() && ink_dir.is_dir() {
+            Some(ink_dir)
+        } else {
+            None
+        }
+    };
+}
+
+const DATA_EXT: &str = "data";
+const COMMIT_EXT: &str = "commit";
 
 fn _init() -> Result<(), InkError> {
     // create ./.ink dir
@@ -19,19 +37,6 @@ fn _init() -> Result<(), InkError> {
 
     Ok(())
 }
-
-/// Find the location of the .ink directory
-/// For now, this returns the current directory + .ink but
-/// will check in higher directories
-fn _get_ink_dir() -> Result<PathBuf, InkError> {
-    let ink_dir = env::current_dir()?.join(".ink");
-    if ink_dir.exists() {
-        Ok(ink_dir)
-    } else {
-        Err(InkError::Err("Uninitialized"))
-    }
-}
-
 
 #[derive(Debug)]
 pub enum InkError {

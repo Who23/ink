@@ -1,11 +1,13 @@
-use std::path::{PathBuf, Path};
+use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read};
 use std::os::unix::fs::PermissionsExt;
-use std::error::Error;
+use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 use hex;
+
+use crate::{DATA_EXT, ROOT_DIR};
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
@@ -14,7 +16,7 @@ pub struct FileData {
     hash: [u8; 32],
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
-    permissions: u32
+    permissions: u32,
 }
 
 impl FileData {
@@ -52,12 +54,12 @@ impl FileData {
     /// Copy the contents of the file this FileData struct
     /// refers to into a file in the given directory.
     /// The name of the file will be it's SHA256 hash.
-    pub fn write_file_content(&self, dirpath: &Path) -> Result<(), Box<dyn Error>> {
-        if !(dirpath.exists() && dirpath.is_dir()) {
-            return Err("Cannot write file to given path".into());
-        }
-
-        let filepath = dirpath.join(hex::encode(&self.hash));
+    pub fn write_content(&self) -> Result<(), Box<dyn Error>> {
+        let filepath = (*ROOT_DIR)
+            .as_ref()
+            .ok_or("Ink Uninitialized")?
+            .join(DATA_EXT)
+            .join(hex::encode(&self.hash));
 
         fs::copy(&self.path, filepath)?;
 
