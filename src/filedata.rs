@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::{fs::PermissionsExt, ffi::OsStrExt};
 use std::path::{Path, PathBuf};
 
 use hex;
@@ -17,12 +17,39 @@ pub struct FileData {
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
     permissions: u32,
+    content: Content
 }
 
 impl FileData {
     /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
-    pub fn new(filepath: &Path) -> io::Result<FileData> {
+    pub fn new(filepath: &Path) -> Result<FileData, Box<dyn Error>> {
+        let content = Content::new(filepath)?;
+        let permissions = fs::metadata(filepath)?.permissions().mode();
+
+        let mut hasher = Sha256::new();
+        hasher.update(filepath.as_os_str().as_bytes());
+        hasher.update(permissions.to_be_bytes());
+        hasher.update(content.hash);
+        let hash = hasher.finalize();
+
+        Ok(FileData {
+            hash: hash.into(),
+            path: filepath.to_path_buf(),
+            permissions,
+            content,
+        })
+    }
+}
+
+pub struct Content {
+    hash: [u8; 32]
+}
+
+impl Content {
+    /// Create a Content struct from a tracked file,
+    /// and add it to the data directory.
+    pub fn new(filepath: &Path) -> Result<Content, Box<dyn Error>> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
@@ -40,29 +67,22 @@ impl FileData {
             }
         }
 
-        // get the hash and unix permissions of the file.
+        // get the hash of the file
         let hash = hasher.finalize();
-        let permissions = file.metadata()?.permissions().mode();
 
-        Ok(FileData {
-            hash: hash.into(),
-            path: filepath.to_path_buf(),
-            permissions,
-        })
-    }
-
-    /// Copy the contents of the file this FileData struct
-    /// refers to into a file in the given directory.
-    /// The name of the file will be it's SHA256 hash.
-    pub fn write_content(&self) -> Result<(), Box<dyn Error>> {
-        let filepath = (*ROOT_DIR)
+        // add it to the data directory.
+        let content_file_path = (*ROOT_DIR)
             .as_ref()
             .ok_or("Ink Uninitialized")?
             .join(DATA_EXT)
-            .join(hex::encode(&self.hash));
+            .join(hex::encode(hash));
 
-        fs::copy(&self.path, filepath)?;
+        if !content_file_path.exists() {
+            fs::copy(filepath, content_file_path)?;
+        }
 
-        Ok(())
+        Ok(Content {
+            hash: hash.into()
+        })
     }
 }

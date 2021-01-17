@@ -25,7 +25,7 @@ impl Commit {
         let files = files
             .iter()
             .map(|filepath| FileData::new(&filepath))
-            .collect::<io::Result<Vec<FileData>>>()?;
+            .collect::<Result<Vec<FileData>, Box<dyn Error>>>()?;
 
         // get SystemTime, convert to seconds.
         let now = SystemTime::now()
