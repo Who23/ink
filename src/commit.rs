@@ -6,10 +6,13 @@ use std::time::SystemTime;
 use crate::filedata::FileData;
 use crate::utils;
 
+use sha2::{Sha256, Digest};
+
 /// Struct to hold information about a commit
 /// to work with in ink. Stores filedata and time
 /// of commit
 pub struct Commit {
+    hash: [u8; 32],
     files: Vec<FileData>,
     time: u64,
 }
@@ -22,10 +25,12 @@ impl Commit {
         utils::find_paths(dirpath, &mut files)?;
 
         // get FileData objects for each file
-        let files = files
+        let mut files = files
             .iter()
             .map(|filepath| FileData::new(&filepath))
             .collect::<Result<Vec<FileData>, Box<dyn Error>>>()?;
+
+        files.sort();
 
         // get SystemTime, convert to seconds.
         let now = SystemTime::now()
@@ -33,6 +38,16 @@ impl Commit {
             .expect("Cannot commit before unix epoch.")
             .as_secs();
 
-        Ok(Commit { files, time: now })
+        let mut hasher = Sha256::new();
+
+        for file in &files {
+            hasher.update(file.hash);
+        }
+
+        hasher.update(now.to_be_bytes());
+
+        let hash = hasher.finalize();
+
+        Ok(Commit { hash: hash.into(), files, time: now })
     }
 }

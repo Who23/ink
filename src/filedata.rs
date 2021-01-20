@@ -3,6 +3,7 @@ use std::fs::{self, File};
 use std::io::{self, Read};
 use std::os::unix::{fs::PermissionsExt, ffi::OsStrExt};
 use std::path::{Path, PathBuf};
+use std::cmp::{Ordering, Eq};
 
 use hex;
 use sha2::{Digest, Sha256};
@@ -13,7 +14,7 @@ use crate::{DATA_EXT, ROOT_DIR};
 /// to commit changes. Includes unix file permissions,
 /// as such it only works on unix systems.
 pub struct FileData {
-    hash: [u8; 32],
+    pub hash: [u8; 32],
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
     permissions: u32,
@@ -41,6 +42,26 @@ impl FileData {
         })
     }
 }
+
+impl Ord for FileData {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.hash.cmp(&other.hash)
+    }
+}
+
+impl PartialOrd for FileData {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for FileData {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl Eq for FileData {}
 
 pub struct Content {
     hash: [u8; 32]
