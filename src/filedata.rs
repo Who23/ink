@@ -4,16 +4,21 @@ use std::io::{self, Read};
 use std::os::unix::{fs::PermissionsExt, ffi::OsStrExt};
 use std::path::{Path, PathBuf};
 use std::cmp::{Ordering, Eq};
+use std::fmt;
 
 use hex;
 use sha2::{Digest, Sha256};
+use custom_debug_derive::Debug;
 
 use crate::{DATA_EXT, ROOT_DIR};
+use crate::utils;
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
 /// as such it only works on unix systems.
+#[derive(Debug)]
 pub struct FileData {
+    #[debug(with = "utils::hex_fmt")]
     pub hash: [u8; 32],
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
@@ -63,7 +68,9 @@ impl PartialEq for FileData {
 
 impl Eq for FileData {}
 
+#[derive(Debug)]
 pub struct Content {
+    #[debug(with = "utils::hex_fmt")]
     hash: [u8; 32]
 }
 

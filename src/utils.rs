@@ -1,8 +1,13 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::fmt;
 
 use crate::InkError;
+
+pub fn hex_fmt<T: fmt::Debug + AsRef<[u8]>>(n: &T, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", hex::encode(n))
+    }
 
 /// Find all the file paths in a directory
 pub fn find_paths(dir: &Path, v: &mut Vec<PathBuf>) -> io::Result<()> {
