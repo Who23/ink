@@ -1,14 +1,14 @@
 use std::error::Error;
+use std::fmt;
 use std::io;
 use std::path::Path;
 use std::time::SystemTime;
-use std::fmt;
 
 use crate::filedata::FileData;
 use crate::utils;
 
-use sha2::{Sha256, Digest};
 use custom_debug_derive::Debug;
+use sha2::{Digest, Sha256};
 
 /// Struct to hold information about a commit
 /// to work with in ink. Stores filedata and time
@@ -52,6 +52,10 @@ impl Commit {
 
         let hash = hasher.finalize();
 
-        Ok(Commit { hash: hash.into(), files, time: now })
+        Ok(Commit {
+            hash: hash.into(),
+            files,
+            time: now,
+        })
     }
 }

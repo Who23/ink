@@ -1,17 +1,17 @@
+use std::cmp::{Eq, Ordering};
 use std::error::Error;
+use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Read};
-use std::os::unix::{fs::PermissionsExt, ffi::OsStrExt};
+use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
-use std::cmp::{Ordering, Eq};
-use std::fmt;
 
+use custom_debug_derive::Debug;
 use hex;
 use sha2::{Digest, Sha256};
-use custom_debug_derive::Debug;
 
-use crate::{DATA_EXT, ROOT_DIR};
 use crate::utils;
+use crate::{DATA_EXT, ROOT_DIR};
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
@@ -23,7 +23,7 @@ pub struct FileData {
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
     permissions: u32,
-    content: Content
+    content: Content,
 }
 
 impl FileData {
@@ -71,7 +71,7 @@ impl Eq for FileData {}
 #[derive(Debug)]
 pub struct Content {
     #[debug(with = "utils::hex_fmt")]
-    hash: [u8; 32]
+    hash: [u8; 32],
 }
 
 impl Content {
@@ -109,8 +109,6 @@ impl Content {
             fs::copy(filepath, content_file_path)?;
         }
 
-        Ok(Content {
-            hash: hash.into()
-        })
+        Ok(Content { hash: hash.into() })
     }
 }
