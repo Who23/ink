@@ -46,6 +46,17 @@ impl FileData {
             content,
         })
     }
+
+    pub fn to_string(&self) -> String {
+        // storing the bytes of the file ensures non-utf 8 files to be stored,
+        // but means that unix and non-unix systems cannot sync graphs.
+        format!(
+            "{} {} {}",
+            hex::encode(self.content.hash),
+            self.permissions,
+            hex::encode(self.path.as_os_str().as_bytes())
+        )
+    }
 }
 
 impl Ord for FileData {

@@ -1,11 +1,11 @@
 use std::error::Error;
-use std::fmt;
-use std::io;
+use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
 use crate::filedata::FileData;
 use crate::utils;
+use crate::{COMMIT_EXT, ROOT_DIR};
 
 use custom_debug_derive::Debug;
 use sha2::{Digest, Sha256};
@@ -52,10 +52,33 @@ impl Commit {
 
         let hash = hasher.finalize();
 
-        Ok(Commit {
+        let commit = Commit {
             hash: hash.into(),
             files,
             time: now,
-        })
+        };
+
+        let commit_file_path = (*ROOT_DIR)
+            .as_ref()
+            .ok_or("Ink Uninitialized")?
+            .join(COMMIT_EXT)
+            .join(hex::encode(hash));
+
+        fs::write(commit_file_path, commit.to_string())?;
+
+        Ok(commit)
+    }
+
+    pub fn to_string(&self) -> String {
+        format!(
+            "{}\n{}\n{}",
+            hex::encode(self.hash),
+            self.files
+                .iter()
+                .map(|f| f.to_string())
+                .collect::<Vec<String>>()
+                .join("\n"),
+            self.time
+        )
     }
 }
