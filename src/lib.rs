@@ -14,13 +14,16 @@ extern crate lazy_static;
 
 lazy_static! {
     pub static ref ROOT_DIR: Option<PathBuf> = {
-        let ink_dir = env::current_dir().unwrap().join(".ink");
+        let curr_dir = env::current_dir().unwrap().canonicalize().unwrap();
 
-        if ink_dir.exists() && ink_dir.is_dir() {
-            Some(ink_dir)
-        } else {
-            None
+        for path in curr_dir.ancestors() {
+            let ink_dir = path.join(".ink");
+            if ink_dir.exists() && ink_dir.is_dir() {
+                return Some(ink_dir);
+            }
         }
+
+        None
     };
 }
 

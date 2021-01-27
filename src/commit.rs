@@ -23,15 +23,11 @@ pub struct Commit {
 
 impl Commit {
     /// Creates a new commit from data in the given directory.
-    pub fn new(dirpath: &Path) -> Result<Commit, Box<dyn Error>> {
-        // list files
-        let mut files = Vec::new();
-        utils::find_paths(dirpath, &mut files)?;
-
+    pub fn new<P: AsRef<Path>>(files: Vec<P>) -> Result<Commit, Box<dyn Error>> {
         // get FileData objects for each file
         let mut files = files
             .iter()
-            .map(|filepath| FileData::new(&filepath))
+            .map(|filepath| FileData::new(filepath.as_ref()))
             .collect::<Result<Vec<FileData>, Box<dyn Error>>>()?;
 
         files.sort();

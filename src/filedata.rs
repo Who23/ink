@@ -33,8 +33,22 @@ impl FileData {
         let content = Content::new(filepath)?;
         let permissions = fs::metadata(filepath)?.permissions().mode();
 
+        // make filepath relative to project directory
+        // find the absolute path of the project directory
+        let project_dir = ROOT_DIR
+            .as_ref()
+            .ok_or("Ink Uninitialized")?
+            .parent()
+            .ok_or("ROOT_DIR is invalid.")?;
+
+        // root the filepath to the project dir.
+        let absolute_filepath = filepath.canonicalize()?;
+        let rooted_filepath = absolute_filepath.strip_prefix(project_dir)?;
+
+        eprintln!("{:?}", rooted_filepath);
+
         let mut hasher = Sha256::new();
-        hasher.update(filepath.as_os_str().as_bytes());
+        hasher.update(rooted_filepath.as_os_str().as_bytes());
         hasher.update(permissions.to_be_bytes());
         hasher.update(content.hash);
         let hash = hasher.finalize();
