@@ -1,51 +1,53 @@
-/// Implementation of a directed, cyclic graph.
+/// Implementation of a directed, cyclic graph for ink objects
+/// Nodes in the graph are not assigned IDs but are expected to generate their own
+/// unique IDs. This is so nodes can be referenced by their hashes.
 use std::collections::HashMap;
-
-type NodeID = usize;
+use std::hash::Hash;
 
 /// The Graph struct holds all the relevant information of the graph.
-/// Contains a HashMap of Nodes, as well as an internal ID counter.
+/// Contains a HashMap of Nodes
 /// This should be created with `Graph::new()` or `Default::default()`
 #[derive(Eq, PartialEq)]
-pub struct Graph<N: Node> {
-    pub nodes: HashMap<NodeID, N>,
-    id_counter: NodeID,
+pub struct Graph<N: Node<I>, I: Hash + Eq> {
+    pub nodes: HashMap<I, N>,
 }
 
 /// A graph node
 /// Must store/return an ID, a vec of nodes it is pointing to,
-/// and a vec of nodes pointing to it.
-pub trait Node {
+/// and a vec of nodes pointing to it. The implementation requires ID's
+/// to be generated from the Node, because all ink objects have hashes
+/// used as IDs.
+pub trait Node<I: Hash + Eq> {
     type Inner;
 
-    fn new(obj: Self::Inner, id: NodeID) -> Self;
-    fn pointing_to(&mut self) -> &mut Vec<NodeID>;
-    fn pointed_to(&mut self) -> &mut Vec<NodeID>;
-    fn id(&self) -> NodeID;
+    fn pointing_to(&mut self) -> &mut Vec<I>;
+    fn pointed_to(&mut self) -> &mut Vec<I>;
+    fn id(&self) -> I;
 }
 
-impl<N: Node> Graph<N> {
+impl<N: Node<I>, I: Hash + Eq + Clone> Graph<N, I> {
     /// Create a new graph
     pub fn new() -> Self {
         Graph {
             nodes: HashMap::new(),
-            id_counter: 0,
         }
     }
 
-    /// Add a node to the graph, given the inner object.
+    /// Add a node to the graph
     /// Returns the ID of the created node.
-    pub fn add_node(&mut self, obj: N::Inner) -> NodeID {
-        let node = Node::new(obj, self.id_counter);
+    pub fn add_node(&mut self, node: N) -> Result<I, &'static str> {
+        let node_id = node.id();
 
-        self.nodes.insert(self.id_counter, node);
-        self.id_counter += 1;
+        if self.nodes.contains_key(&node_id) {
+            return Err("Node ID is not unique");
+        }
 
-        self.id_counter - 1
+        self.nodes.insert(node.id(), node);
+        Ok(node_id)
     }
 
     /// Remove a node by ID. Fails if the node ID is not found.
-    pub fn remove_node(&mut self, id: NodeID) -> Result<(), &'static str> {
+    pub fn remove_node(&mut self, id: I) -> Result<(), &'static str> {
         // get edge data for this node
         let (pointing_to, pointed_to) = if let Some(node) = self.nodes.get_mut(&id) {
             Ok((node.pointing_to().clone(), node.pointed_to().clone()))
@@ -74,7 +76,7 @@ impl<N: Node> Graph<N> {
 
     /// Add an edge between two nodes by ID. Fails if the node IDs are not found.
     /// It does allow a node to create an edge with itself.
-    pub fn add_edge(&mut self, from: NodeID, to: NodeID) -> Result<(), &'static str> {
+    pub fn add_edge(&mut self, from: I, to: I) -> Result<(), &'static str> {
         if !self.nodes.contains_key(&from) {
             return Err("Invalid Node ID for 'from' node");
         }
@@ -88,7 +90,7 @@ impl<N: Node> Graph<N> {
             return Err("'from' node already contains an edge to 'to' node");
         }
 
-        from_pointing_to.push(to);
+        from_pointing_to.push(to.clone());
 
         let to_pointed_to = self.nodes.get_mut(&to).unwrap().pointed_to();
 
@@ -102,7 +104,7 @@ impl<N: Node> Graph<N> {
     }
 
     /// Remove an edge between two nodes by ID. Fails if the node IDs are not found.
-    pub fn remove_edge(&mut self, from: NodeID, to: NodeID) -> Result<(), &'static str> {
+    pub fn remove_edge(&mut self, from: I, to: I) -> Result<(), &'static str> {
         if !self.nodes.contains_key(&from) {
             return Err("Invalid Node ID for 'from' node");
         }
@@ -130,24 +132,21 @@ impl<N: Node> Graph<N> {
     }
 }
 
-impl<N: Node> Default for Graph<N> {
+impl<N: Node<I>, I: Hash + Eq> Default for Graph<N, I> {
     fn default() -> Self {
         Graph {
             nodes: Default::default(),
-            id_counter: Default::default(),
         }
     }
 }
 
-impl<N> std::fmt::Debug for Graph<N>
+impl<N, I> std::fmt::Debug for Graph<N, I>
 where
-    N: Node + std::fmt::Debug,
+    N: Node<I> + std::fmt::Debug,
+    I: Hash + Eq + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Graph")
-            .field("nodes", &self.nodes)
-            .field("id_counter", &self.id_counter)
-            .finish()
+        f.debug_struct("Graph").field("nodes", &self.nodes).finish()
     }
 }
 
@@ -157,16 +156,14 @@ mod tests {
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     struct TestNode {
-        id: NodeID,
+        id: usize,
         obj: usize,
-        pointing_to: Vec<NodeID>,
-        pointed_to: Vec<NodeID>,
+        pointing_to: Vec<usize>,
+        pointed_to: Vec<usize>,
     }
 
-    impl Node for TestNode {
-        type Inner = usize;
-
-        fn new(obj: Self::Inner, id: NodeID) -> Self {
+    impl TestNode {
+        fn new(obj: usize, id: usize) -> Self {
             TestNode {
                 id,
                 obj,
@@ -174,25 +171,29 @@ mod tests {
                 pointed_to: vec![],
             }
         }
+    }
 
-        fn pointing_to(&mut self) -> &mut Vec<NodeID> {
+    impl Node<usize> for TestNode {
+        type Inner = usize;
+
+        fn pointing_to(&mut self) -> &mut Vec<usize> {
             &mut self.pointing_to
         }
 
-        fn pointed_to(&mut self) -> &mut Vec<NodeID> {
+        fn pointed_to(&mut self) -> &mut Vec<usize> {
             &mut self.pointed_to
         }
 
-        fn id(&self) -> NodeID {
+        fn id(&self) -> usize {
             self.id
         }
     }
 
     #[test]
     fn adding_node() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        graph.add_node(5);
-        graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        graph.add_node(TestNode::new(5, 0)).unwrap();
+        graph.add_node(TestNode::new(3, 1)).unwrap();
 
         assert_eq!(
             graph,
@@ -219,17 +220,16 @@ mod tests {
                 ]
                 .iter()
                 .cloned()
-                .collect::<HashMap<NodeID, TestNode>>(),
-                id_counter: 2
+                .collect::<HashMap<usize, TestNode>>(),
             }
         );
     }
 
     #[test]
     fn removing_valid_node() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        graph.add_node(5);
-        let id = graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        graph.add_node(TestNode::new(5, 0)).unwrap();
+        let id = graph.add_node(TestNode::new(3, 1)).unwrap();
         graph.remove_node(id).unwrap();
 
         assert_eq!(
@@ -246,26 +246,25 @@ mod tests {
                 )]
                 .iter()
                 .cloned()
-                .collect::<HashMap<NodeID, TestNode>>(),
-                id_counter: 2
+                .collect::<HashMap<usize, TestNode>>(),
             }
         );
     }
 
     #[test]
     fn removing_invalid_node() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        graph.add_node(5);
-        graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        graph.add_node(TestNode::new(5, 0)).unwrap();
+        graph.add_node(TestNode::new(3, 1)).unwrap();
 
         assert_eq!(graph.remove_node(20), Err("Invalid Node ID"));
     }
 
     #[test]
     fn adding_valid_edge() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        let first_id = graph.add_node(5);
-        let second_id = graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        let first_id = graph.add_node(TestNode::new(5, 0)).unwrap();
+        let second_id = graph.add_node(TestNode::new(3, 1)).unwrap();
         graph.add_edge(first_id, second_id).unwrap();
 
         assert_eq!(
@@ -293,17 +292,16 @@ mod tests {
                 ]
                 .iter()
                 .cloned()
-                .collect::<HashMap<NodeID, TestNode>>(),
-                id_counter: 2
+                .collect::<HashMap<usize, TestNode>>(),
             }
         );
     }
 
     #[test]
     fn adding_invalid_edge() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        let first_id = graph.add_node(5);
-        let second_id = graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        let first_id = graph.add_node(TestNode::new(5, 0)).unwrap();
+        let second_id = graph.add_node(TestNode::new(3, 1)).unwrap();
         graph.add_edge(first_id, second_id).unwrap();
 
         assert_eq!(
@@ -324,9 +322,9 @@ mod tests {
 
     #[test]
     fn removing_valid_edge() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        let first_id = graph.add_node(5);
-        let second_id = graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        let first_id = graph.add_node(TestNode::new(5, 0)).unwrap();
+        let second_id = graph.add_node(TestNode::new(3, 1)).unwrap();
         graph.add_edge(first_id, second_id).unwrap();
         graph.add_edge(second_id, first_id).unwrap();
         graph.remove_edge(first_id, second_id).unwrap();
@@ -356,17 +354,16 @@ mod tests {
                 ]
                 .iter()
                 .cloned()
-                .collect::<HashMap<NodeID, TestNode>>(),
-                id_counter: 2
+                .collect::<HashMap<usize, TestNode>>(),
             }
         )
     }
 
     #[test]
     fn removing_invalid_edge() {
-        let mut graph: Graph<TestNode> = Graph::new();
-        let first_id = graph.add_node(5);
-        let second_id = graph.add_node(3);
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        let first_id = graph.add_node(TestNode::new(5, 0)).unwrap();
+        let second_id = graph.add_node(TestNode::new(3, 1)).unwrap();
         graph.add_edge(first_id, second_id).unwrap();
 
         assert_eq!(
@@ -385,5 +382,16 @@ mod tests {
             graph.remove_edge(first_id, second_id),
             Err("No edge exists between the 'from' node and the 'to' node")
         )
+    }
+
+    #[test]
+    fn adding_duplicate_node_id() {
+        let mut graph: Graph<TestNode, usize> = Graph::new();
+        graph.add_node(TestNode::new(5, 0)).unwrap();
+
+        assert_eq!(
+            graph.add_node(TestNode::new(3, 0)),
+            Err("Node ID is not unique")
+        );
     }
 }
