@@ -18,8 +18,6 @@ pub struct Graph<N: Node<I>, I: Hash + Eq> {
 /// to be generated from the Node, because all ink objects have hashes
 /// used as IDs.
 pub trait Node<I: Hash + Eq> {
-    type Inner;
-
     fn pointing_to(&mut self) -> &mut Vec<I>;
     fn pointed_to(&mut self) -> &mut Vec<I>;
     fn id(&self) -> I;
@@ -174,8 +172,6 @@ mod tests {
     }
 
     impl Node<usize> for TestNode {
-        type Inner = usize;
-
         fn pointing_to(&mut self) -> &mut Vec<usize> {
             &mut self.pointing_to
         }
