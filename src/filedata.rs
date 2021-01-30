@@ -45,8 +45,6 @@ impl FileData {
         let absolute_filepath = filepath.canonicalize()?;
         let rooted_filepath = absolute_filepath.strip_prefix(project_dir)?;
 
-        eprintln!("{:?}", rooted_filepath);
-
         let mut hasher = Sha256::new();
         hasher.update(rooted_filepath.as_os_str().as_bytes());
         hasher.update(permissions.to_be_bytes());
