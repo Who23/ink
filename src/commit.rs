@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -54,19 +55,24 @@ impl Commit {
             time: now,
         };
 
+        Ok(commit)
+    }
+
+    /// Write commit data to disk in .ink
+    /// This should be called when the state of the repo is in
+    /// this commit - otherwise, the wrong files will be written to disk.
+    pub fn write(&self) -> Result<(), Box<dyn Error>> {
+        for file in &self.files {
+            file.write()?;
+        }
+
         let commit_file_path = (*ROOT_DIR)
             .as_ref()
             .ok_or("Ink Uninitialized")?
             .join(COMMIT_EXT)
-            .join(hex::encode(hash));
+            .join(hex::encode(self.hash));
 
-        fs::write(commit_file_path, commit.to_string())?;
-
-        Ok(commit)
-    }
-
-    pub fn to_string(&self) -> String {
-        format!(
+        let string = format!(
             "{}\n{}\n{}",
             hex::encode(self.hash),
             self.time,
@@ -75,6 +81,10 @@ impl Commit {
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
                 .join("\n"),
-        )
+        );
+
+        fs::write(commit_file_path, string)?;
+
+        Ok(())
     }
 }

@@ -59,6 +59,13 @@ impl FileData {
         })
     }
 
+    /// Write content to disk.
+    pub fn write(&self) -> Result<(), Box<dyn Error>> {
+        self.content.write(&self.path)?;
+        Ok(())
+    }
+
+    /// Get a string version of this FileData for use in Commit.
     pub fn to_string(&self) -> String {
         // storing the bytes of the file ensures non-utf 8 files to be stored,
         // but means that unix and non-unix systems cannot sync graphs.
@@ -100,7 +107,8 @@ pub struct Content {
 impl Content {
     /// Create a Content struct from a tracked file,
     /// and add it to the data directory.
-    pub fn new(filepath: &Path) -> Result<Content, Box<dyn Error>> {
+    /// Only created by FileData
+    fn new(filepath: &Path) -> Result<Content, Box<dyn Error>> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
@@ -121,17 +129,22 @@ impl Content {
         // get the hash of the file
         let hash = hasher.finalize();
 
+        Ok(Content { hash: hash.into() })
+    }
+
+    /// Should only be called by FileData
+    fn write(&self, filepath: &Path) -> Result<(), Box<dyn Error>> {
         // add it to the data directory.
         let content_file_path = (*ROOT_DIR)
             .as_ref()
             .ok_or("Ink Uninitialized")?
             .join(DATA_EXT)
-            .join(hex::encode(hash));
+            .join(hex::encode(self.hash));
 
         if !content_file_path.exists() {
             fs::copy(filepath, content_file_path)?;
         }
 
-        Ok(Content { hash: hash.into() })
+        Ok(())
     }
 }
