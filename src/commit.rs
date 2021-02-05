@@ -4,7 +4,6 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use crate::filedata::FileData;
-use crate::graph::Node;
 use crate::utils;
 use crate::{COMMIT_EXT, ROOT_DIR};
 
@@ -20,9 +19,6 @@ pub struct Commit {
     hash: [u8; 32],
     files: Vec<FileData>,
     time: u64,
-
-    parents: Vec<[u8; 32]>,
-    children: Vec<[u8; 32]>,
 }
 
 impl Commit {
@@ -56,8 +52,6 @@ impl Commit {
             hash: hash.into(),
             files,
             time: now,
-            parents: vec![],
-            children: vec![],
         };
 
         let commit_file_path = (*ROOT_DIR)
@@ -73,7 +67,7 @@ impl Commit {
 
     pub fn to_string(&self) -> String {
         format!(
-            "{}\n{}\n{}\nparents:\n{}children:\n{}",
+            "{}\n{}\n{}",
             hex::encode(self.hash),
             self.time,
             self.files
@@ -81,30 +75,6 @@ impl Commit {
                 .map(|f| f.to_string())
                 .collect::<Vec<String>>()
                 .join("\n"),
-            self.parents
-                .iter()
-                .map(|h| hex::encode(h))
-                .collect::<Vec<String>>()
-                .join("\n"),
-            self.children
-                .iter()
-                .map(|h| hex::encode(h))
-                .collect::<Vec<String>>()
-                .join("\n"),
         )
-    }
-}
-
-impl Node<[u8; 32]> for Commit {
-    fn pointing_to(&mut self) -> &mut Vec<[u8; 32]> {
-        &mut self.children
-    }
-
-    fn pointed_to(&mut self) -> &mut Vec<[u8; 32]> {
-        &mut self.parents
-    }
-
-    fn id(&self) -> [u8; 32] {
-        self.hash
     }
 }
