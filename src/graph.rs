@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 /// Implementation of a directed, cyclic graph for ink objects
 /// Nodes in graph are IDs (SHA256 hashes)
 use std::collections::HashMap;
@@ -7,13 +8,13 @@ type InkID = [u8; 32];
 /// The Graph struct holds all the relevant information of the graph.
 /// Contains a HashMap of IDs and their neighbors
 /// This should be created with `Graph::new()` or `Default::default()`
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct IDGraph {
     nodes: HashMap<InkID, Neighbors>,
 }
 
 /// The neighbors for a given ID, parents and children.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct Neighbors {
     parents: Vec<InkID>,
     children: Vec<InkID>,
