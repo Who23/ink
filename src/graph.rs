@@ -122,6 +122,15 @@ impl IDGraph {
 
         Ok(())
     }
+
+    /// Find the heads of the graph
+    pub fn heads(&self) -> Vec<InkID> {
+        self.nodes
+            .iter()
+            .filter(|(_id, neighbors)| neighbors.children.is_empty())
+            .map(|(id, _neighbors)| id.clone())
+            .collect::<Vec<InkID>>()
+    }
 }
 
 #[cfg(test)]

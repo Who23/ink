@@ -4,12 +4,13 @@ pub mod filedata;
 pub mod graph;
 mod utils;
 
+use crate::commit::Commit;
 use crate::graph::IDGraph;
 
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[macro_use]
 extern crate lazy_static;
@@ -51,11 +52,37 @@ pub fn init() -> Result<(), InkError> {
     Ok(())
 }
 
+pub fn commit() -> Result<(), InkError> {
+    let mut paths = Vec::new();
+    let root_dir = ROOT_DIR.as_ref().ok_or("Ink Uninitialized")?;
+    utils::find_paths(
+        root_dir
+            .parent()
+            .ok_or("Could not find project directory")?,
+        &mut paths,
+    )?;
+    let commit = Commit::new(paths)?;
+    commit.write()?;
+
+    let graph_path = root_dir.join("graph");
+    let mut graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;
+
+    graph.add_node(commit.hash())?;
+
+    // no branching yet so there will only be one head
+    let head = graph.heads()[0];
+    graph.add_edge(head, commit.hash())?;
+
+    fs::write(&graph_path, bincode::serialize(&graph)?)?;
+
+    Ok(())
+}
+
 #[derive(Debug)]
 pub enum InkError {
     Err(&'static str),
     IO(io::Error),
-    Serialization(bincode::ErrorKind)
+    Serialization(bincode::ErrorKind),
 }
 
 impl From<io::Error> for InkError {

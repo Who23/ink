@@ -11,7 +11,7 @@ use hex;
 use sha2::{Digest, Sha256};
 
 use crate::utils;
-use crate::{DATA_EXT, ROOT_DIR};
+use crate::{InkError, DATA_EXT, ROOT_DIR};
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
@@ -29,7 +29,7 @@ pub struct FileData {
 impl FileData {
     /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
-    pub fn new(filepath: &Path) -> Result<FileData, Box<dyn Error>> {
+    pub fn new(filepath: &Path) -> Result<FileData, InkError> {
         let content = Content::new(filepath)?;
         let permissions = fs::metadata(filepath)?.permissions().mode();
 
@@ -43,7 +43,9 @@ impl FileData {
 
         // root the filepath to the project dir.
         let absolute_filepath = filepath.canonicalize()?;
-        let rooted_filepath = absolute_filepath.strip_prefix(project_dir)?;
+        let rooted_filepath = absolute_filepath
+            .strip_prefix(project_dir)
+            .map_err(|_| "Could not root filepaths relative to project dir")?;
 
         let mut hasher = Sha256::new();
         hasher.update(rooted_filepath.as_os_str().as_bytes());
@@ -60,7 +62,7 @@ impl FileData {
     }
 
     /// Write content to disk.
-    pub fn write(&self) -> Result<(), Box<dyn Error>> {
+    pub fn write(&self) -> Result<(), InkError> {
         self.content.write(&self.path)?;
         Ok(())
     }
@@ -108,7 +110,7 @@ impl Content {
     /// Create a Content struct from a tracked file,
     /// and add it to the data directory.
     /// Only created by FileData
-    fn new(filepath: &Path) -> Result<Content, Box<dyn Error>> {
+    fn new(filepath: &Path) -> Result<Content, InkError> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
@@ -133,7 +135,7 @@ impl Content {
     }
 
     /// Should only be called by FileData
-    fn write(&self, filepath: &Path) -> Result<(), Box<dyn Error>> {
+    fn write(&self, filepath: &Path) -> Result<(), InkError> {
         // add it to the data directory.
         let content_file_path = (*ROOT_DIR)
             .as_ref()

@@ -6,7 +6,7 @@ use std::time::SystemTime;
 
 use crate::filedata::FileData;
 use crate::utils;
-use crate::{COMMIT_EXT, ROOT_DIR};
+use crate::{InkError, COMMIT_EXT, ROOT_DIR};
 
 use custom_debug_derive::Debug;
 use sha2::{Digest, Sha256};
@@ -24,19 +24,19 @@ pub struct Commit {
 
 impl Commit {
     /// Creates a new commit from data in the given directory.
-    pub fn new<P: AsRef<Path>>(files: Vec<P>) -> Result<Commit, Box<dyn Error>> {
+    pub fn new<P: AsRef<Path>>(files: Vec<P>) -> Result<Commit, InkError> {
         // get FileData objects for each file
         let mut files = files
             .iter()
             .map(|filepath| FileData::new(filepath.as_ref()))
-            .collect::<Result<Vec<FileData>, Box<dyn Error>>>()?;
+            .collect::<Result<Vec<FileData>, InkError>>()?;
 
         files.sort();
 
         // get SystemTime, convert to seconds.
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("Cannot commit before unix epoch.")
+            .map_err(|_| "Cannot commit before unix epoch.")?
             .as_secs();
 
         let mut hasher = Sha256::new();
@@ -61,7 +61,7 @@ impl Commit {
     /// Write commit data to disk in .ink
     /// This should be called when the state of the repo is in
     /// this commit - otherwise, the wrong files will be written to disk.
-    pub fn write(&self) -> Result<(), Box<dyn Error>> {
+    pub fn write(&self) -> Result<(), InkError> {
         for file in &self.files {
             file.write()?;
         }
@@ -85,5 +85,9 @@ impl Commit {
         fs::write(commit_file_path, string)?;
 
         Ok(())
+    }
+
+    pub fn hash(&self) -> [u8; 32] {
+        self.hash
     }
 }
