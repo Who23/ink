@@ -73,8 +73,7 @@ impl Commit {
             .join(hex::encode(self.hash));
 
         let string = format!(
-            "{}\n{}\n{}",
-            hex::encode(self.hash),
+            "{}\n{}",
             self.time,
             self.files
                 .iter()

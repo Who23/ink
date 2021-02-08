@@ -53,7 +53,7 @@ impl FileData {
 
         Ok(FileData {
             hash: hash.into(),
-            path: filepath.to_path_buf(),
+            path: rooted_filepath.to_path_buf(),
             permissions,
             content,
         })
