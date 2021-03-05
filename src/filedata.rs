@@ -1,8 +1,6 @@
 use std::cmp::{Eq, Ordering};
-use std::error::Error;
-use std::fmt;
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::Read;
 use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -12,14 +10,15 @@ use sha2::{Digest, Sha256};
 
 use crate::utils;
 use crate::{InkError, DATA_EXT, ROOT_DIR};
+use serde::{Deserialize, Serialize};
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
 /// as such it only works on unix systems.
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileData {
     #[debug(with = "utils::hex_fmt")]
-    pub hash: [u8; 32],
+    hash: [u8; 32],
     path: PathBuf,
     // rust sets/gets unix file perms as a u32
     permissions: u32,
@@ -62,21 +61,13 @@ impl FileData {
     }
 
     /// Write content to disk.
-    pub fn write(&self) -> Result<(), InkError> {
+    pub fn write_content(&self) -> Result<(), InkError> {
         self.content.write(&self.path)?;
         Ok(())
     }
 
-    /// Get a string version of this FileData for use in Commit.
-    pub fn to_string(&self) -> String {
-        // storing the bytes of the file ensures non-utf 8 files to be stored,
-        // but means that unix and non-unix systems cannot sync graphs.
-        format!(
-            "{} {} {}",
-            hex::encode(self.content.hash),
-            self.permissions,
-            hex::encode(self.path.as_os_str().as_bytes())
-        )
+    pub fn hash(&self) -> [u8; 32] {
+        self.hash
     }
 }
 
@@ -100,7 +91,7 @@ impl PartialEq for FileData {
 
 impl Eq for FileData {}
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Content {
     #[debug(with = "utils::hex_fmt")]
     hash: [u8; 32],

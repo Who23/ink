@@ -1,6 +1,4 @@
-use std::error::Error;
 use std::fs;
-use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -10,13 +8,15 @@ use crate::{InkError, COMMIT_EXT, ROOT_DIR};
 
 use custom_debug_derive::Debug;
 use sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 
 /// Struct to hold information about a commit
 /// to work with in ink. Stores filedata and time
 /// of commit
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Commit {
     #[debug(with = "utils::hex_fmt")]
+    #[serde(skip)]
     hash: [u8; 32],
     files: Vec<FileData>,
     time: u64,
@@ -42,7 +42,7 @@ impl Commit {
         let mut hasher = Sha256::new();
 
         for file in &files {
-            hasher.update(file.hash);
+            hasher.update(file.hash());
         }
 
         hasher.update(now.to_be_bytes());
@@ -63,7 +63,7 @@ impl Commit {
     /// this commit - otherwise, the wrong files will be written to disk.
     pub fn write(&self) -> Result<(), InkError> {
         for file in &self.files {
-            file.write()?;
+            file.write_content()?;
         }
 
         let commit_file_path = (*ROOT_DIR)
@@ -72,17 +72,7 @@ impl Commit {
             .join(COMMIT_EXT)
             .join(hex::encode(self.hash));
 
-        let string = format!(
-            "{}\n{}",
-            self.time,
-            self.files
-                .iter()
-                .map(|f| f.to_string())
-                .collect::<Vec<String>>()
-                .join("\n"),
-        );
-
-        fs::write(commit_file_path, string)?;
+        fs::write(commit_file_path, bincode::serialize(&self)?)?;
 
         Ok(())
     }
