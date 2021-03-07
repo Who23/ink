@@ -7,8 +7,8 @@ use crate::utils;
 use crate::{InkError, COMMIT_EXT, ROOT_DIR};
 
 use custom_debug_derive::Debug;
-use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Struct to hold information about a commit
 /// to work with in ink. Stores filedata and time

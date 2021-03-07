@@ -1,6 +1,6 @@
 use std::cmp::{Eq, Ordering};
 use std::fs::{self, File};
-use std::io::Read;
+use std::io::{self, Read};
 use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use crate::utils;
 use crate::{InkError, DATA_EXT, ROOT_DIR};
+use libflate::deflate::Encoder;
 use serde::{Deserialize, Serialize};
 
 /// A struct holding the file data nessecary
@@ -135,7 +136,11 @@ impl Content {
             .join(hex::encode(self.hash));
 
         if !content_file_path.exists() {
-            fs::copy(filepath, content_file_path)?;
+            let file_writer = File::create(content_file_path)?;
+            let mut writer = Encoder::new(file_writer);
+            let mut reader = File::open(filepath)?;
+            io::copy(&mut reader, &mut writer)?;
+            writer.finish().into_result()?;
         }
 
         Ok(())
