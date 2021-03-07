@@ -10,7 +10,7 @@ use crate::graph::IDGraph;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 
 #[macro_use]
 extern crate lazy_static;
@@ -61,6 +61,10 @@ pub fn commit() -> Result<(), InkError> {
             .ok_or("Could not find project directory")?,
         &mut paths,
     )?;
+    paths = paths
+        .into_iter()
+        .filter(|p| !p.starts_with(root_dir))
+        .collect();
     let commit = Commit::new(paths)?;
     commit.write()?;
 
