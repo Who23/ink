@@ -62,10 +62,6 @@ impl Commit {
     /// This should be called when the state of the repo is in
     /// this commit - otherwise, the wrong files will be written to disk.
     pub fn write(&self) -> Result<(), InkError> {
-        for file in &self.files {
-            file.write_content()?;
-        }
-
         let commit_file_path = (*ROOT_DIR)
             .as_ref()
             .ok_or("Ink Uninitialized")?
@@ -86,11 +82,11 @@ impl Commit {
             .join(hex::encode(hash));
 
         if !(commit_file_path.exists() && commit_file_path.is_file()) {
-            return Err("Given commit hash does not exist on disk".into())
+            return Err("Given commit hash does not exist on disk".into());
         }
 
         let reader = File::open(commit_file_path)?;
-        let mut commit : Commit = bincode::deserialize_from(reader)?;
+        let mut commit: Commit = bincode::deserialize_from(reader)?;
         commit.hash = *hash;
 
         Ok(commit)

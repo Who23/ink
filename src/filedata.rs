@@ -61,12 +61,6 @@ impl FileData {
         })
     }
 
-    /// Write content to disk.
-    pub fn write_content(&self) -> Result<(), InkError> {
-        self.content.write(&self.path)?;
-        Ok(())
-    }
-
     pub fn hash(&self) -> [u8; 32] {
         self.hash
     }
@@ -120,21 +114,22 @@ impl Content {
             }
         }
 
+        drop(file);
+
         // get the hash of the file
         let hash = hasher.finalize();
 
-        Ok(Content { hash: hash.into() })
-    }
-
-    /// Should only be called by FileData
-    fn write(&self, filepath: &Path) -> Result<(), InkError> {
         // add it to the data directory.
         let content_file_path = (*ROOT_DIR)
             .as_ref()
             .ok_or("Ink Uninitialized")?
             .join(DATA_EXT)
-            .join(hex::encode(self.hash));
+            .join(hex::encode(hash));
 
+        // yeah, we read the file twice sometimes. But we don't
+        // always write the file to content_file_path, and
+        // reading the file only once means we'd have to write & compress
+        // every time, then throw it away if we don't need it.
         if !content_file_path.exists() {
             let file_writer = File::create(content_file_path)?;
             let mut writer = Encoder::new(file_writer);
@@ -143,6 +138,6 @@ impl Content {
             writer.finish().into_result()?;
         }
 
-        Ok(())
+        Ok(Content { hash: hash.into() })
     }
 }
