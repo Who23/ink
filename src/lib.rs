@@ -10,7 +10,7 @@ use crate::graph::IDGraph;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 
 #[macro_use]
 extern crate lazy_static;
@@ -47,7 +47,7 @@ pub fn init() -> Result<(), InkError> {
     let graph = IDGraph::new();
     let encoded_graph = bincode::serialize(&graph)?;
 
-    graph_file.write(&encoded_graph)?;
+    graph_file.write_all(&encoded_graph)?;
 
     Ok(())
 }

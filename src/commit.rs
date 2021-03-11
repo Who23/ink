@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, File};
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -75,6 +75,25 @@ impl Commit {
         fs::write(commit_file_path, bincode::serialize(&self)?)?;
 
         Ok(())
+    }
+
+    /// Deserialize a commit object from its hash.
+    pub fn from(hash: &[u8; 32]) -> Result<Commit, InkError> {
+        let commit_file_path = (*ROOT_DIR)
+            .as_ref()
+            .ok_or("Ink Uninitialized")?
+            .join(COMMIT_EXT)
+            .join(hex::encode(hash));
+
+        if !(commit_file_path.exists() && commit_file_path.is_file()) {
+            return Err("Given commit hash does not exist on disk".into())
+        }
+
+        let reader = File::open(commit_file_path)?;
+        let mut commit : Commit = bincode::deserialize_from(reader)?;
+        commit.hash = *hash;
+
+        Ok(commit)
     }
 
     pub fn hash(&self) -> [u8; 32] {
