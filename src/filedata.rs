@@ -5,11 +5,10 @@ use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use custom_debug_derive::Debug;
-use hex;
 use sha2::{Digest, Sha256};
 
 use crate::utils;
-use crate::{InkError, DATA_EXT, ROOT_DIR};
+use crate::{InkError, DATA_EXT};
 use libflate::deflate::Encoder;
 use serde::{Deserialize, Serialize};
 
@@ -29,17 +28,13 @@ pub struct FileData {
 impl FileData {
     /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
-    pub fn new(filepath: &Path) -> Result<FileData, InkError> {
-        let content = Content::new(filepath)?;
+    pub fn new(filepath: &Path, ink_root: &Path) -> Result<FileData, InkError> {
+        let content = Content::new(filepath, ink_root)?;
         let permissions = fs::metadata(filepath)?.permissions().mode();
 
         // make filepath relative to project directory
         // find the absolute path of the project directory
-        let project_dir = ROOT_DIR
-            .as_ref()
-            .ok_or("Ink Uninitialized")?
-            .parent()
-            .ok_or("ROOT_DIR is invalid.")?;
+        let project_dir = ink_root.parent().ok_or("ink root dir is invalid.")?;
 
         // root the filepath to the project dir.
         let absolute_filepath = filepath.canonicalize()?;
@@ -96,7 +91,7 @@ impl Content {
     /// Create a Content struct from a tracked file,
     /// and add it to the data directory.
     /// Only created by FileData
-    fn new(filepath: &Path) -> Result<Content, InkError> {
+    fn new(filepath: &Path, ink_root: &Path) -> Result<Content, InkError> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
@@ -120,16 +115,13 @@ impl Content {
         let hash = hasher.finalize();
 
         // add it to the data directory.
-        let content_file_path = (*ROOT_DIR)
-            .as_ref()
-            .ok_or("Ink Uninitialized")?
-            .join(DATA_EXT)
-            .join(hex::encode(hash));
+        let content_file_path = ink_root.join(DATA_EXT).join(hex::encode(hash));
 
         // yeah, we read the file twice sometimes. But we don't
         // always write the file to content_file_path, and
         // reading the file only once means we'd have to write & compress
         // every time, then throw it away if we don't need it.
+        // TODO: Is there a better way of doing this? inc. safety stuff with two reads.
         if !content_file_path.exists() {
             let file_writer = File::create(content_file_path)?;
             let mut writer = Encoder::new(file_writer);

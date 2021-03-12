@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use crate::filedata::FileData;
 use crate::utils;
-use crate::{InkError, COMMIT_EXT, ROOT_DIR};
+use crate::{InkError, COMMIT_EXT};
 
 use custom_debug_derive::Debug;
 use serde::{Deserialize, Serialize};
@@ -24,11 +24,11 @@ pub struct Commit {
 
 impl Commit {
     /// Creates a new commit from data in the given directory.
-    pub fn new<P: AsRef<Path>>(files: Vec<P>) -> Result<Commit, InkError> {
+    pub fn new<P: AsRef<Path>>(files: Vec<P>, ink_root: &Path) -> Result<Commit, InkError> {
         // get FileData objects for each file
         let mut files = files
             .iter()
-            .map(|filepath| FileData::new(filepath.as_ref()))
+            .map(|filepath| FileData::new(filepath.as_ref(), ink_root))
             .collect::<Result<Vec<FileData>, InkError>>()?;
 
         files.sort();
@@ -61,12 +61,8 @@ impl Commit {
     /// Write commit data to disk in .ink
     /// This should be called when the state of the repo is in
     /// this commit - otherwise, the wrong files will be written to disk.
-    pub fn write(&self) -> Result<(), InkError> {
-        let commit_file_path = (*ROOT_DIR)
-            .as_ref()
-            .ok_or("Ink Uninitialized")?
-            .join(COMMIT_EXT)
-            .join(hex::encode(self.hash));
+    pub fn write(&self, ink_root: &Path) -> Result<(), InkError> {
+        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(self.hash));
 
         fs::write(commit_file_path, bincode::serialize(&self)?)?;
 
@@ -74,12 +70,8 @@ impl Commit {
     }
 
     /// Deserialize a commit object from its hash.
-    pub fn from(hash: &[u8; 32]) -> Result<Commit, InkError> {
-        let commit_file_path = (*ROOT_DIR)
-            .as_ref()
-            .ok_or("Ink Uninitialized")?
-            .join(COMMIT_EXT)
-            .join(hex::encode(hash));
+    pub fn from(hash: &[u8; 32], ink_root: &Path) -> Result<Commit, InkError> {
+        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(hash));
 
         if !(commit_file_path.exists() && commit_file_path.is_file()) {
             return Err("Given commit hash does not exist on disk".into());

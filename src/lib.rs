@@ -12,26 +12,21 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-#[macro_use]
-extern crate lazy_static;
-
-lazy_static! {
-    pub static ref ROOT_DIR: Option<PathBuf> = {
-        let curr_dir = env::current_dir().unwrap().canonicalize().unwrap();
-
-        for path in curr_dir.ancestors() {
-            let ink_dir = path.join(".ink");
-            if ink_dir.exists() && ink_dir.is_dir() {
-                return Some(ink_dir);
-            }
-        }
-
-        None
-    };
-}
-
 const DATA_EXT: &str = "data";
 const COMMIT_EXT: &str = "commit";
+
+fn root_dir() -> Result<Option<PathBuf>, InkError> {
+    let curr_dir = env::current_dir()?.canonicalize()?;
+
+    for path in curr_dir.ancestors() {
+        let ink_dir = path.join(".ink");
+        if ink_dir.exists() && ink_dir.is_dir() {
+            return Ok(Some(ink_dir));
+        }
+    }
+
+    Ok(None)
+}
 
 // functions called by cli
 pub fn init() -> Result<(), InkError> {
@@ -54,7 +49,7 @@ pub fn init() -> Result<(), InkError> {
 
 pub fn commit() -> Result<(), InkError> {
     let mut paths = Vec::new();
-    let root_dir = ROOT_DIR.as_ref().ok_or("Ink Uninitialized")?;
+    let root_dir = root_dir()?.ok_or("Ink Uninitialized")?;
     utils::find_paths(
         root_dir
             .parent()
@@ -63,10 +58,10 @@ pub fn commit() -> Result<(), InkError> {
     )?;
     paths = paths
         .into_iter()
-        .filter(|p| !p.starts_with(root_dir))
+        .filter(|p| !p.starts_with(&root_dir))
         .collect();
-    let commit = Commit::new(paths)?;
-    commit.write()?;
+    let commit = Commit::new(paths, &root_dir)?;
+    commit.write(&root_dir)?;
 
     let graph_path = root_dir.join("graph");
     let mut graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;
