@@ -81,7 +81,7 @@ impl PartialEq for FileData {
 
 impl Eq for FileData {}
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Content {
     #[debug(with = "utils::hex_fmt")]
     hash: [u8; 32],
@@ -131,5 +131,58 @@ impl Content {
         }
 
         Ok(Content { hash: hash.into() })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use libflate::deflate::Decoder;
+    use std::convert::TryInto;
+    use std::io::Write;
+
+    #[test]
+    fn new_content_test() {
+        let tmpdir = tempfile::tempdir_in("./test_tmp_files").unwrap();
+        let tmpdir_path = tmpdir.path();
+        let ex_file_path = tmpdir_path.join("example");
+
+        crate::init(tmpdir_path).unwrap();
+        File::create(&ex_file_path)
+            .unwrap()
+            .write_all(b"this is a test!")
+            .unwrap();
+
+        let content = Content::new(&ex_file_path, &tmpdir_path.join(".ink")).unwrap();
+
+        assert_eq!(
+            content,
+            Content {
+                hash: hex::decode(
+                    "ca7f87917e4f5029f81ec74d6711f1c587dca0fe91ec82b87bb77aeb15e6566d"
+                )
+                .unwrap()
+                .try_into()
+                .unwrap()
+            }
+        );
+
+        let subdir_content_path: PathBuf = [
+            ".ink",
+            "data",
+            "ca7f87917e4f5029f81ec74d6711f1c587dca0fe91ec82b87bb77aeb15e6566d",
+        ]
+        .iter()
+        .collect();
+
+        let content_path = tmpdir_path.join(subdir_content_path);
+
+        assert!(content_path.exists());
+
+        let mut decoder = Decoder::new(File::open(content_path).unwrap());
+        let mut decoded_data = Vec::new();
+        decoder.read_to_end(&mut decoded_data).unwrap();
+
+        assert_eq!(decoded_data, b"this is a test!");
     }
 }

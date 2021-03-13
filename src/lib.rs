@@ -9,6 +9,7 @@ use crate::graph::IDGraph;
 
 use std::env;
 use std::fs::{self, File};
+use std::path::Path;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
@@ -29,9 +30,9 @@ fn root_dir() -> Result<Option<PathBuf>, InkError> {
 }
 
 // functions called by cli
-pub fn init() -> Result<(), InkError> {
+pub fn init(in_dir: &Path) -> Result<(), InkError> {
     // create ./.ink dir
-    let ink_dir = env::current_dir()?.join(".ink");
+    let ink_dir = in_dir.join(".ink");
 
     fs::create_dir(&ink_dir)?;
     fs::create_dir(&ink_dir.join(COMMIT_EXT))?;
