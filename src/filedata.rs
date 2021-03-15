@@ -185,4 +185,41 @@ mod tests {
 
         assert_eq!(decoded_data, b"this is a test!");
     }
+
+    #[test]
+    fn new_filedata_test() {
+        let tmpdir = tempfile::tempdir_in("./test_tmp_files").unwrap();
+        let tmpdir_path = tmpdir.path();
+        let ex_file_path = tmpdir_path.join("example");
+
+        crate::init(tmpdir_path).unwrap();
+        File::create(&ex_file_path)
+            .unwrap()
+            .write_all(b"this is a test!")
+            .unwrap();
+
+        let filedata = FileData::new(&ex_file_path, &tmpdir_path.join(".ink")).unwrap();
+
+        assert_eq!(
+            filedata,
+            FileData {
+                hash: hex::decode(
+                    "d2cf54bef59f1921aeae4fab95594a57924bc8b39ba96e4e32a881fefb949fb9"
+                )
+                .unwrap()
+                .try_into()
+                .unwrap(),
+                path: Path::new(".").join(ex_file_path),
+                permissions: 33188,
+                content: Content {
+                    hash: hex::decode(
+                        "ca7f87917e4f5029f81ec74d6711f1c587dca0fe91ec82b87bb77aeb15e6566d"
+                    )
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+                }
+            }
+        );
+    }
 }

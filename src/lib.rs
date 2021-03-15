@@ -9,8 +9,8 @@ use crate::graph::IDGraph;
 
 use std::env;
 use std::fs::{self, File};
-use std::path::Path;
 use std::io::{self, Write};
+use std::path::Path;
 use std::path::PathBuf;
 
 const DATA_EXT: &str = "data";
