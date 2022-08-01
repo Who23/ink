@@ -10,8 +10,8 @@ use crate::graph::IDGraph;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Write};
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 const DATA_EXT: &str = "data";
 const COMMIT_EXT: &str = "commit";
@@ -48,7 +48,7 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     Ok(())
 }
 
-pub fn commit() -> Result<(), InkError> {
+pub fn commit() -> Result<Commit, InkError> {
     let mut paths = Vec::new();
     let root_dir = root_dir()?.ok_or("Ink Uninitialized")?;
     utils::find_paths(
@@ -61,7 +61,7 @@ pub fn commit() -> Result<(), InkError> {
         .into_iter()
         .filter(|p| !p.starts_with(&root_dir))
         .collect();
-    let commit = Commit::new(paths, &root_dir)?;
+    let commit = Commit::new(paths, SystemTime::now(), &root_dir)?;
     commit.write(&root_dir)?;
 
     let graph_path = root_dir.join("graph");
@@ -75,7 +75,7 @@ pub fn commit() -> Result<(), InkError> {
 
     fs::write(&graph_path, bincode::serialize(&graph)?)?;
 
-    Ok(())
+    Ok(commit)
 }
 
 #[derive(Debug)]

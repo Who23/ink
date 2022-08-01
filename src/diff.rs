@@ -3,12 +3,11 @@ mod algo;
 mod edit;
 mod parser;
 
+use edit::{Edit, Operation};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-
-use edit::{Edit, Operation};
 
 /// Struct that holds the diff of two files.
 ///

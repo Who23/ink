@@ -135,11 +135,28 @@ impl Content {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use libflate::deflate::Decoder;
     use std::convert::TryInto;
     use std::io::Write;
+
+    /// Used to construct `FileData` objects in other testing modules
+    pub fn get_filedata(
+        hash: &'static str,
+        path: &'static str,
+        permissions: u32,
+        content_hash: &'static str,
+    ) -> FileData {
+        FileData {
+            hash: hex::decode(hash).unwrap().try_into().unwrap(),
+            path: PathBuf::from(path),
+            permissions,
+            content: Content {
+                hash: hex::decode(content_hash).unwrap().try_into().unwrap(),
+            },
+        }
+    }
 
     #[test]
     fn new_content_test() {
