@@ -62,7 +62,6 @@ pub fn commit() -> Result<Commit, InkError> {
         .filter(|p| !p.starts_with(&root_dir))
         .collect();
     let commit = Commit::new(paths, SystemTime::now(), &root_dir)?;
-    commit.write(&root_dir)?;
 
     let graph_path = root_dir.join("graph");
     let mut graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;

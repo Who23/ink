@@ -53,7 +53,7 @@ impl CommitRepr {
 }
 
 impl Commit {
-    /// Creates a new commit from data in the given directory with the
+    /// Creates and writes a new commit from data in the given directory with the
     /// given timestamp
     pub fn new<P: AsRef<Path>>(
         files: Vec<P>,
@@ -90,18 +90,11 @@ impl Commit {
             time: now,
         };
 
+        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(commit.hash));
+
+        fs::write(commit_file_path, bincode::serialize(&commit)?)?;
+
         Ok(commit)
-    }
-
-    /// Write commit data to disk in .ink
-    /// This should be called when the state of the repo is in
-    /// this commit - otherwise, the wrong files will be written to disk.
-    pub fn write(&self, ink_root: &Path) -> Result<(), InkError> {
-        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(self.hash));
-
-        fs::write(commit_file_path, bincode::serialize(&self)?)?;
-
-        Ok(())
     }
 
     /// Deserialize a commit object from its hash.
@@ -214,9 +207,7 @@ mod tests {
         let info = env_setup(1379995200);
         let ink_dir = info.tmpdir.path().join(".ink");
 
-        let commit = Commit::new(info.paths, info.time, &ink_dir);
-        let commit = commit.unwrap();
-        commit.write(&ink_dir).unwrap();
+        let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
 
         let commit_path = ink_dir
             .join("commit")
@@ -235,9 +226,7 @@ mod tests {
         let info = env_setup(1379995200);
         let ink_dir = info.tmpdir.path().join(".ink");
 
-        let commit = Commit::new(info.paths, info.time, &ink_dir);
-        let commit = commit.unwrap();
-        commit.write(&ink_dir).unwrap();
+        let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
         let read_commit = Commit::from(
             &hex::decode("b27b7b5bdd38f0d8c35734bd54f941e41674e1f516c9e0ec5092800565686626")
                 .unwrap()
@@ -255,9 +244,7 @@ mod tests {
         let info = env_setup(1379995200);
         let ink_dir = info.tmpdir.path().join(".ink");
 
-        let commit = Commit::new(info.paths, info.time, &ink_dir);
-        let commit = commit.unwrap();
-        commit.write(&ink_dir).unwrap();
+        let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
         let read_commit = Commit::from(
             &hex::decode("a27b7b5bdd38f0d8c35734bd54f941e41674e1f516c9e0ec5092800565686626")
                 .unwrap()
