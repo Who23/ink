@@ -8,6 +8,8 @@ use crate::commit::Commit;
 use crate::graph::IDGraph;
 
 use std::env;
+use std::error::Error;
+use std::fmt::Display;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -84,6 +86,8 @@ pub enum InkError {
     Serialization(bincode::ErrorKind),
 }
 
+impl Error for InkError {}
+
 impl From<io::Error> for InkError {
     fn from(err: io::Error) -> InkError {
         InkError::IO(err)
@@ -99,5 +103,15 @@ impl From<&'static str> for InkError {
 impl From<Box<bincode::ErrorKind>> for InkError {
     fn from(err: Box<bincode::ErrorKind>) -> InkError {
         InkError::Serialization(*err)
+    }
+}
+
+impl Display for InkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self {
+            InkError::Err(e) => write!(f, "{}", e),
+            InkError::IO(e) => write!(f, "{}", e),
+            InkError::Serialization(e) => write!(f, "{}", e),
+        }
     }
 }
