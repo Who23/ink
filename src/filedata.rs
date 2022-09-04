@@ -28,7 +28,7 @@ pub struct FileData {
 impl FileData {
     /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
-    pub fn new(filepath: &Path, ink_root: &Path) -> Result<FileData, InkError> {
+    pub(crate) fn new(filepath: &Path, ink_root: &Path) -> Result<FileData, InkError> {
         let content = Content::new(filepath, ink_root)?;
         let permissions = fs::metadata(filepath)?.permissions().mode();
 

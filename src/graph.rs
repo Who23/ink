@@ -22,14 +22,14 @@ struct Neighbors {
 
 impl IDGraph {
     /// Create a new graph
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         IDGraph {
             nodes: HashMap::new(),
         }
     }
 
     /// Add an ID to the graph
-    pub fn add_node(&mut self, id: InkID) -> Result<(), &'static str> {
+    pub(crate) fn add_node(&mut self, id: InkID) -> Result<(), &'static str> {
         if self.nodes.contains_key(&id) {
             return Err("ID is already in the graph");
         }
@@ -39,7 +39,7 @@ impl IDGraph {
     }
 
     /// Remove an ID. Fails if the ID is not found.
-    pub fn remove_node(&mut self, id: InkID) -> Result<(), &'static str> {
+    pub(crate) fn remove_node(&mut self, id: InkID) -> Result<(), &'static str> {
         // get edge data for this node
         let (children, parents) = if let Some(node) = self.nodes.get_mut(&id) {
             Ok((node.children.clone(), node.parents.clone()))
@@ -68,7 +68,7 @@ impl IDGraph {
 
     /// Add an edge between two IDs. Fails if the IDs are not found.
     /// Allows a node to create an edge with itself.
-    pub fn add_edge(&mut self, from: InkID, to: InkID) -> Result<(), &'static str> {
+    pub(crate) fn add_edge(&mut self, from: InkID, to: InkID) -> Result<(), &'static str> {
         if !self.nodes.contains_key(&from) {
             return Err("Invalid Node ID for 'from' node");
         }
@@ -96,7 +96,7 @@ impl IDGraph {
     }
 
     /// Remove an edge between two IDs. Fails if the node IDs are not found.
-    pub fn remove_edge(&mut self, from: InkID, to: InkID) -> Result<(), &'static str> {
+    pub(crate) fn remove_edge(&mut self, from: InkID, to: InkID) -> Result<(), &'static str> {
         if !self.nodes.contains_key(&from) {
             return Err("Invalid ID for 'from' node");
         }

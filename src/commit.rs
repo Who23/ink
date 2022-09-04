@@ -55,7 +55,7 @@ impl CommitRepr {
 impl Commit {
     /// Creates and writes a new commit from data in the given directory with the
     /// given timestamp
-    pub fn new<P: AsRef<Path>>(
+    pub(crate) fn new<P: AsRef<Path>>(
         files: Vec<P>,
         timestamp: SystemTime,
         ink_root: &Path,
@@ -100,7 +100,7 @@ impl Commit {
     /// Deserialize a commit object from its hash.
     /// Throws an error if the given hash does not match the actual hash of the commit
     /// or if the given commit does not exist.
-    pub fn from(hash: &[u8; 32], ink_root: &Path) -> Result<Commit, InkError> {
+    pub(crate) fn from(hash: &[u8; 32], ink_root: &Path) -> Result<Commit, InkError> {
         let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(hash));
 
         if !(commit_file_path.exists() && commit_file_path.is_file()) {
