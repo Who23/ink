@@ -84,23 +84,29 @@ impl Commit {
 
         let hash = hasher.finalize().into();
 
-        let commit = Commit {
+        Ok(Commit {
             hash,
             files,
             time: now,
-        };
+        })
+    }
 
-        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(commit.hash));
+    pub(crate) fn write(&self, ink_root: &Path) -> Result<(), InkError> {
+        for file in &self.files {
+            file.write(ink_root)?;
+        }
 
-        fs::write(commit_file_path, bincode::serialize(&commit)?)?;
+        let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(self.hash));
 
-        Ok(commit)
+        fs::write(commit_file_path, bincode::serialize(&self)?)?;
+
+        Ok(())
     }
 
     /// Deserialize a commit object from its hash.
     /// Throws an error if the given hash does not match the actual hash of the commit
     /// or if the given commit does not exist.
-    pub(crate) fn from(hash: &[u8; 32], ink_root: &Path) -> Result<Commit, InkError> {
+    pub fn from(hash: &[u8; 32], ink_root: &Path) -> Result<Commit, InkError> {
         let commit_file_path = ink_root.join(COMMIT_EXT).join(hex::encode(hash));
 
         if !(commit_file_path.exists() && commit_file_path.is_file()) {
@@ -128,10 +134,12 @@ mod tests {
     use super::*;
     use crate::filedata::tests::get_filedata;
     use std::convert::TryInto;
+    use std::fmt::Debug;
     use std::io::Write;
     use std::path::PathBuf;
     use std::time::Duration;
 
+    #[derive(Debug)]
     struct CommitInfo {
         tmpdir: tempfile::TempDir,
         paths: Vec<PathBuf>,
@@ -208,6 +216,7 @@ mod tests {
         let ink_dir = info.tmpdir.path().join(".ink");
 
         let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
+        commit.write(&ink_dir).unwrap();
 
         let commit_path = ink_dir
             .join("commit")
@@ -227,6 +236,7 @@ mod tests {
         let ink_dir = info.tmpdir.path().join(".ink");
 
         let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
+        commit.write(&ink_dir).unwrap();
         let read_commit = Commit::from(
             &hex::decode("b27b7b5bdd38f0d8c35734bd54f941e41674e1f516c9e0ec5092800565686626")
                 .unwrap()

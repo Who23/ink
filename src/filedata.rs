@@ -1,6 +1,6 @@
 use std::cmp::{Eq, Ordering};
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -11,6 +11,8 @@ use crate::utils;
 use crate::{InkError, DATA_EXT};
 use libflate::deflate::Encoder;
 use serde::{Deserialize, Serialize};
+use std::io::BufWriter;
+use tempfile;
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
@@ -29,7 +31,7 @@ impl FileData {
     /// Creates a FileData struct given a filepath.
     /// Can fail on IO errors.
     pub(crate) fn new(filepath: &Path, ink_root: &Path) -> Result<FileData, InkError> {
-        let content = Content::new(filepath, ink_root)?;
+        let content = Content::new(filepath)?;
         let permissions = fs::metadata(filepath)?.permissions().mode();
 
         // make filepath relative to project directory
@@ -54,6 +56,11 @@ impl FileData {
             permissions,
             content,
         })
+    }
+
+    pub(crate) fn write(&self, ink_root: &Path) -> Result<(), InkError> {
+        self.content.write(&self.path, ink_root)?;
+        Ok(())
     }
 
     pub fn hash(&self) -> [u8; 32] {
@@ -91,7 +98,7 @@ impl Content {
     /// Create a Content struct from a tracked file,
     /// and add it to the data directory.
     /// Only created by FileData
-    fn new(filepath: &Path, ink_root: &Path) -> Result<Content, InkError> {
+    fn new(filepath: &Path) -> Result<Content, InkError> {
         let mut file = File::open(filepath)?;
         let mut hasher = Sha256::new();
 
@@ -114,23 +121,59 @@ impl Content {
         // get the hash of the file
         let hash = hasher.finalize();
 
+        Ok(Content { hash: hash.into() })
+    }
+
+    fn write(&self, filepath: &Path, ink_root: &Path) -> Result<(), InkError> {
+        let filepath = ink_root
+            .parent()
+            .ok_or("ink_root has no parent")?
+            .join(filepath);
+
+        let mut file = File::open(filepath)?;
+        let mut hasher = Sha256::new();
+
+        // create buffer for holding chunks of file
+        const BUF_SIZE: usize = 1024 * 128;
+        let mut buffer = [0; BUF_SIZE];
+        let mut tmp_file = tempfile::tempfile()?;
+        let mut tmp = Encoder::new(BufWriter::new(&tmp_file));
+
+        // read chunks of the file and update the hash.
+        loop {
+            let bytes_read = file.read(&mut buffer)?;
+            hasher.update(&buffer[..bytes_read]);
+            tmp.write(&buffer[..bytes_read])?;
+
+            if bytes_read < BUF_SIZE {
+                break;
+            }
+        }
+
+        drop(file);
+
+        // finish writing
+        tmp.finish().into_result()?;
+
+        // get the hash of the file
+        let hash: [u8; 32] = hasher.finalize().into();
+
+        if hash != self.hash {
+            return Err(InkError::Err(
+                "File has changed between reading and writing",
+            ));
+        }
+
         // add it to the data directory.
         let content_file_path = ink_root.join(DATA_EXT).join(hex::encode(hash));
 
-        // yeah, we read the file twice sometimes. But we don't
-        // always write the file to content_file_path, and
-        // reading the file only once means we'd have to write & compress
-        // every time, then throw it away if we don't need it.
-        // TODO: Is there a better way of doing this? inc. safety stuff with two reads.
         if !content_file_path.exists() {
-            let file_writer = File::create(content_file_path)?;
-            let mut writer = Encoder::new(file_writer);
-            let mut reader = File::open(filepath)?;
-            io::copy(&mut reader, &mut writer)?;
-            writer.finish().into_result()?;
+            tmp_file.seek(SeekFrom::Start(0))?;
+            let mut file_writer = File::create(content_file_path)?;
+            io::copy(&mut tmp_file, &mut file_writer)?;
         }
 
-        Ok(Content { hash: hash.into() })
+        Ok(())
     }
 }
 
@@ -170,7 +213,10 @@ pub mod tests {
             .write_all(b"this is a test!")
             .unwrap();
 
-        let content = Content::new(&ex_file_path, &tmpdir_path.join(".ink")).unwrap();
+        let content = Content::new(&ex_file_path).unwrap();
+        content
+            .write(&ex_file_path, &tmpdir_path.join(".ink"))
+            .unwrap();
 
         assert_eq!(
             content,
