@@ -1,4 +1,5 @@
 pub mod commit;
+mod cursor;
 pub mod diff;
 pub mod filedata;
 pub mod graph;
@@ -18,6 +19,7 @@ use std::time::SystemTime;
 const DATA_EXT: &str = "data";
 const COMMIT_EXT: &str = "commit";
 const GRAPH_FILE: &str = "graph";
+const CURSOR_FILE: &str = "cursor";
 
 fn root_dir() -> Result<Option<PathBuf>, InkError> {
     let curr_dir = env::current_dir()?.canonicalize()?;
@@ -40,6 +42,7 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     fs::create_dir(&ink_dir)?;
     fs::create_dir(&ink_dir.join(COMMIT_EXT))?;
     fs::create_dir(&ink_dir.join(DATA_EXT))?;
+    cursor::init(&ink_dir)?;
 
     let mut graph_file = File::create(&ink_dir.join(GRAPH_FILE))?;
 
@@ -73,10 +76,10 @@ pub fn commit() -> Result<Commit, InkError> {
 
     graph.add_node(commit.hash())?;
 
-    // no branching yet so there will only be one head
-    let head = graph.heads()[0];
-    graph.add_edge(head, commit.hash())?;
+    let current_commit = cursor::get(&root_dir)?;
+    graph.add_edge(current_commit.hash(), commit.hash())?;
 
+    cursor::set(&root_dir, &commit)?;
     fs::write(&graph_path, bincode::serialize(&graph)?)?;
 
     Ok(commit)
