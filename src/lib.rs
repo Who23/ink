@@ -17,6 +17,7 @@ use std::time::SystemTime;
 
 const DATA_EXT: &str = "data";
 const COMMIT_EXT: &str = "commit";
+const GRAPH_FILE: &str = "graph";
 
 fn root_dir() -> Result<Option<PathBuf>, InkError> {
     let curr_dir = env::current_dir()?.canonicalize()?;
@@ -40,7 +41,7 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     fs::create_dir(&ink_dir.join(COMMIT_EXT))?;
     fs::create_dir(&ink_dir.join(DATA_EXT))?;
 
-    let mut graph_file = File::create(&ink_dir.join("graph"))?;
+    let mut graph_file = File::create(&ink_dir.join(GRAPH_FILE))?;
 
     let graph = IDGraph::new();
     let encoded_graph = bincode::serialize(&graph)?;
@@ -67,7 +68,7 @@ pub fn commit() -> Result<Commit, InkError> {
     let commit = Commit::new(paths, SystemTime::now(), &root_dir)?;
     commit.write(&root_dir)?;
 
-    let graph_path = root_dir.join("graph");
+    let graph_path = root_dir.join(GRAPH_FILE);
     let mut graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;
 
     graph.add_node(commit.hash())?;
