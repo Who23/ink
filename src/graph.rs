@@ -1,2 +1,3 @@
+mod commit_graph;
 mod id_graph;
-pub use id_graph::IDGraph;
+pub use commit_graph::CommitGraph;

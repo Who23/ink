@@ -6,13 +6,13 @@ pub mod graph;
 mod utils;
 
 use crate::commit::Commit;
-use crate::graph::IDGraph;
+use crate::graph::CommitGraph;
 
 use std::env;
 use std::error::Error;
 use std::fmt::Display;
-use std::fs::{self, File};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -43,13 +43,7 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     fs::create_dir(&ink_dir.join(COMMIT_EXT))?;
     fs::create_dir(&ink_dir.join(DATA_EXT))?;
     cursor::init(&ink_dir)?;
-
-    let mut graph_file = File::create(&ink_dir.join(GRAPH_FILE))?;
-
-    let graph = IDGraph::new();
-    let encoded_graph = bincode::serialize(&graph)?;
-
-    graph_file.write_all(&encoded_graph)?;
+    CommitGraph::init(&ink_dir)?;
 
     Ok(())
 }
@@ -71,16 +65,13 @@ pub fn commit() -> Result<Commit, InkError> {
     let commit = Commit::new(paths, SystemTime::now(), &root_dir)?;
     commit.write(&root_dir)?;
 
-    let graph_path = root_dir.join(GRAPH_FILE);
-    let mut graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;
-
-    graph.add_node(commit.hash())?;
+    let mut graph = CommitGraph::get(&root_dir)?;
 
     let current_commit = cursor::get(&root_dir)?;
-    graph.add_edge(current_commit.hash(), commit.hash())?;
+    graph.add_commit(&current_commit, &commit)?;
 
     cursor::set(&root_dir, &commit)?;
-    fs::write(&graph_path, bincode::serialize(&graph)?)?;
+    graph.write()?;
 
     Ok(commit)
 }

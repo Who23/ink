@@ -1,9 +1,8 @@
-use ink::graph::IDGraph;
+use ink::graph::CommitGraph;
 use ink::InkError;
 use std::convert::TryInto;
 use std::env;
 use std::error;
-use std::fs;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
@@ -37,8 +36,7 @@ fn debugging_cli(args: Vec<String>) -> Result<(), Box<dyn error::Error>> {
                 }
                 "graph" => {
                     let root_dir = root_dir()?.ok_or("no root")?;
-                    let graph_path = root_dir.join("graph");
-                    let graph: IDGraph = bincode::deserialize(&fs::read(&graph_path)?)?;
+                    let graph = CommitGraph::get(&root_dir);
                     println!("{:?}", graph);
                 }
                 _ => unimplemented!(),
