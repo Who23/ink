@@ -42,8 +42,12 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     fs::create_dir(&ink_dir)?;
     fs::create_dir(&ink_dir.join(COMMIT_EXT))?;
     fs::create_dir(&ink_dir.join(DATA_EXT))?;
+    let empty_commit = Commit::new::<PathBuf>(vec![], SystemTime::now(), &ink_dir)?;
+    println!("{:?}", empty_commit);
+    empty_commit.write(&ink_dir)?;
     cursor::init(&ink_dir)?;
-    CommitGraph::init(&ink_dir)?;
+    cursor::set(&ink_dir, &empty_commit)?;
+    CommitGraph::init(&ink_dir, &empty_commit)?;
 
     Ok(())
 }

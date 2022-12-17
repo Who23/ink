@@ -20,5 +20,5 @@ pub fn get(ink_root: &Path) -> Result<Commit, InkError> {
         Err(_) => Err(InkError::Err("Cursor hash is wrong length")),
     }?;
 
-    Ok(Commit::from(&hash, ink_root)?)
+    Commit::from(&hash, ink_root)
 }
