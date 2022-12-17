@@ -11,10 +11,13 @@ pub struct CommitGraph {
 }
 
 impl CommitGraph {
-    pub fn init(ink_dir: &Path) -> Result<(), InkError> {
+    pub fn init(ink_dir: &Path, empty_commit: &Commit) -> Result<(), InkError> {
         let graph_path = &ink_dir.join(GRAPH_FILE);
 
-        let graph = IDGraph::new();
+        let mut graph = IDGraph::new();
+        // maybe ensure this is the empty commit by checking it's hash is the same thing the empty
+        // commit's hash always is?
+        graph.add_node(empty_commit.hash())?;
         fs::write(&graph_path, bincode::serialize(&graph)?)?;
 
         Ok(())
@@ -27,7 +30,7 @@ impl CommitGraph {
     }
 
     pub fn add_commit(&mut self, from: &Commit, to: &Commit) -> Result<(), InkError> {
-        self.graph.add_node(from.hash())?;
+        self.graph.add_node(to.hash())?;
         self.graph.add_edge(from.hash(), to.hash())?;
         Ok(())
     }

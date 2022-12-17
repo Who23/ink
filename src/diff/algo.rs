@@ -30,9 +30,9 @@ pub mod myers {
             // a Vec with a negative number. Mapping from -max <-> max
             // to 0 <-> 2*max + 1
             let index_k = if k < 0 {
-                max - k.abs() as usize
+                max - k.unsigned_abs()
             } else {
-                max + k.abs() as usize
+                max + k.unsigned_abs()
             };
 
             // Which point in the edit graph do we backtrack to?
@@ -45,9 +45,9 @@ pub mod myers {
 
             // Calculate all the same values for that backtracked point
             let prev_index_k = if prev_k < 0 {
-                max - prev_k.abs() as usize
+                max - prev_k.unsigned_abs()
             } else {
-                max + prev_k.abs() as usize
+                max + prev_k.unsigned_abs()
             };
             let prev_x = v[prev_index_k] as isize;
             let prev_y = prev_x - prev_k;

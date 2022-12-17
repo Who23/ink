@@ -48,7 +48,7 @@ pub fn read_lines<'a>(
         let remainder = &input[prev_newline_index..];
         Ok((remainder, lines))
     } else {
-        lines.push(&input[..]);
+        lines.push(input);
         Ok(("", lines))
     }
 }
@@ -67,14 +67,14 @@ mod tests {
     #[test]
     fn read_usize() {
         let hello = "123456hi";
-        assert_eq!(super::read_usize(&hello).unwrap(), ("hi", 123456))
+        assert_eq!(super::read_usize(hello).unwrap(), ("hi", 123456))
     }
 
     #[test]
     fn read_lines() {
         let ex = "hello\nI am \n\nso cool";
         assert_eq!(
-            super::read_lines(&ex, 3).unwrap(),
+            super::read_lines(ex, 3).unwrap(),
             ("so cool", vec!["hello", "I am ", ""])
         )
     }
@@ -82,6 +82,6 @@ mod tests {
     #[test]
     fn skip_sequence() {
         let ex = ",.123";
-        assert_eq!(super::skip_sequence(&ex, ",.").unwrap(), "123")
+        assert_eq!(super::skip_sequence(ex, ",.").unwrap(), "123")
     }
 }

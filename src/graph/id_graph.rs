@@ -82,7 +82,7 @@ impl IDGraph {
             return Err("'from' node already contains an edge to 'to' node");
         }
 
-        from_children.push(to.clone());
+        from_children.push(to);
 
         let to_parents = &mut self.nodes.get_mut(&to).unwrap().parents;
 
@@ -128,7 +128,7 @@ impl IDGraph {
         self.nodes
             .iter()
             .filter(|(_id, neighbors)| neighbors.children.is_empty())
-            .map(|(id, _neighbors)| id.clone())
+            .map(|(id, _neighbors)| *id)
             .collect::<Vec<InkID>>()
     }
 }

@@ -312,7 +312,7 @@ mod tests {
         let info = env_setup(1379995200);
         let ink_dir = info.tmpdir.path().join(".ink");
 
-        let commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
+        let _commit = Commit::new(info.paths, info.time, &ink_dir).unwrap();
         let read_commit = Commit::from(
             &hex::decode("a27b7b5bdd38f0d8c35734bd54f941e41674e1f516c9e0ec5092800565686626")
                 .unwrap()
