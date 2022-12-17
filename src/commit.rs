@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::Path;
 use std::time::SystemTime;
@@ -18,6 +19,7 @@ pub struct Commit {
     #[debug(with = "utils::hex_fmt")]
     #[serde(skip)]
     hash: [u8; 32],
+    // TODO: store these as a hash set with custom hash trait for ink id hashes
     files: Vec<FileData>,
     time: u64,
 }
@@ -127,6 +129,62 @@ impl Commit {
     pub fn hash(&self) -> [u8; 32] {
         self.hash
     }
+
+    /// Creates the diff to transform self -> other
+    pub fn diff(&self, other: &Commit) -> CommitDiff {
+        let mut edits = vec![];
+
+        let self_hashes = self
+            .files
+            .iter()
+            .map(|f| (f.path(), f))
+            .collect::<HashMap<&Path, &FileData>>();
+
+        let other_hashes = other
+            .files
+            .iter()
+            .map(|f| (f.path(), f))
+            .collect::<HashMap<&Path, &FileData>>();
+
+        // TODO: this should not be checking for the combination of
+        // index and path, just path -> get the relevant file
+        for (path, file) in &other_hashes {
+            if !self_hashes.contains_key(path) {
+                edits.push(Edit::Insert((*file).clone()));
+            } else {
+                let original = self_hashes.get(path).unwrap();
+                if file.hash() != original.hash() {
+                    edits.push(Edit::Modify {
+                        original: (*original).clone(),
+                        modified: (*file).clone(),
+                    });
+                }
+            }
+        }
+
+        for (path, file) in self_hashes {
+            if !other_hashes.contains_key(path) {
+                edits.push(Edit::Delete(file.clone()));
+            }
+        }
+
+        CommitDiff { edits }
+    }
+}
+
+#[derive(Debug)]
+pub struct CommitDiff {
+    pub edits: Vec<Edit>,
+}
+
+#[derive(Debug)]
+pub enum Edit {
+    Insert(FileData),
+    Delete(FileData),
+    Modify {
+        original: FileData,
+        modified: FileData,
+    },
 }
 
 #[cfg(test)]

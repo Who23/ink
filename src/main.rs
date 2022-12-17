@@ -19,6 +19,16 @@ fn debugging_cli(args: Vec<String>) -> Result<(), Box<dyn error::Error>> {
         "commit" => {
             let _ = ink::commit()?;
         }
+        "go" => {
+            if args.len() < 2 {
+                return Err("Not enough args (commit hash)".into());
+            }
+
+            let root_dir = root_dir()?.ok_or("no root")?;
+            let hash = hex::decode(&args[2])?.try_into().unwrap();
+            let commit = ink::commit::Commit::from(&hash, &root_dir)?;
+            ink::go(commit)?;
+        }
         "debug" => {
             if args.len() < 3 {
                 return Err("Not enough args (commit, graph)".into());

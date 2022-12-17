@@ -5,7 +5,7 @@ pub mod filedata;
 pub mod graph;
 mod utils;
 
-use crate::commit::Commit;
+use crate::commit::{Commit, Edit};
 use crate::graph::CommitGraph;
 
 use std::env;
@@ -48,9 +48,8 @@ pub fn init(in_dir: &Path) -> Result<(), InkError> {
     Ok(())
 }
 
-pub fn commit() -> Result<Commit, InkError> {
+fn create_commit_from_wd(root_dir: &Path) -> Result<Commit, InkError> {
     let mut paths = Vec::new();
-    let root_dir = root_dir()?.ok_or("Ink Uninitialized")?;
     utils::find_paths(
         root_dir
             .parent()
@@ -62,7 +61,12 @@ pub fn commit() -> Result<Commit, InkError> {
         .filter(|p| !p.starts_with(&root_dir))
         .collect();
 
-    let commit = Commit::new(paths, SystemTime::now(), &root_dir)?;
+    Commit::new(paths, SystemTime::now(), &root_dir)
+}
+
+pub fn commit() -> Result<Commit, InkError> {
+    let root_dir = root_dir()?.ok_or("Ink Uninitialized")?;
+    let commit = create_commit_from_wd(&root_dir)?;
     commit.write(&root_dir)?;
 
     let mut graph = CommitGraph::get(&root_dir)?;
@@ -74,6 +78,35 @@ pub fn commit() -> Result<Commit, InkError> {
     graph.write()?;
 
     Ok(commit)
+}
+
+pub fn go(to: Commit) -> Result<(), InkError> {
+    let root_dir = root_dir()?.ok_or("Ink Uninitialized")?;
+    let from = cursor::get(&root_dir)?;
+
+    // perform check to see if pwd is dirty
+    if !(dbg!(create_commit_from_wd(&root_dir)?.diff(&from).edits)).is_empty() {
+        return Err(
+            "The working directory is dirty, please commit all changes before proceeding".into(),
+        );
+    }
+
+    // diff current commit and target commit
+    let diff = from.diff(&to);
+    // apply diff by removing removed files, applying diffs to changed files, and add new files
+    for edit in diff.edits {
+        match edit {
+            Edit::Insert(f) => f.write_to(&root_dir, f.path()),
+            Edit::Delete(f) => fs::remove_file(f.path()).map_err(|e| e.into()),
+            Edit::Modify { original, modified } => {
+                fs::remove_file(original.path())?;
+                modified.write_to(&root_dir, modified.path())
+            }
+        }?;
+    }
+
+    // set cursor to new commit
+    cursor::set(&root_dir, &to)
 }
 
 #[derive(Debug)]

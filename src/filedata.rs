@@ -1,6 +1,6 @@
 use std::cmp::{Eq, Ordering};
-use std::fs::{self, File};
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::fs::{self, File, Permissions};
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -9,15 +9,14 @@ use sha2::{Digest, Sha256};
 
 use crate::utils;
 use crate::{InkError, DATA_EXT};
-use libflate::deflate::Encoder;
+use libflate::deflate::{Decoder, Encoder};
 use serde::{Deserialize, Serialize};
-use std::io::BufWriter;
 use tempfile;
 
 /// A struct holding the file data nessecary
 /// to commit changes. Includes unix file permissions,
 /// as such it only works on unix systems.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FileData {
     #[debug(with = "utils::hex_fmt")]
     hash: [u8; 32],
@@ -63,8 +62,25 @@ impl FileData {
         Ok(())
     }
 
+    pub(crate) fn write_to(&self, ink_root: &Path, filepath: &Path) -> Result<(), InkError> {
+        let _f = File::create(&filepath);
+        fs::set_permissions(&filepath, Permissions::from_mode(self.permissions))?;
+        let mut writer = BufWriter::new(File::create(filepath)?);
+        let mut reader = self.content.get_reader(ink_root)?;
+        let _ = io::copy(&mut reader, &mut writer)?;
+        Ok(())
+    }
+
     pub fn hash(&self) -> [u8; 32] {
         self.hash
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn permissions(&self) -> u32 {
+        self.permissions
     }
 }
 
@@ -88,7 +104,7 @@ impl PartialEq for FileData {
 
 impl Eq for FileData {}
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct Content {
     #[debug(with = "utils::hex_fmt")]
     hash: [u8; 32],
@@ -174,6 +190,11 @@ impl Content {
         }
 
         Ok(())
+    }
+
+    fn get_reader(&self, ink_root: &Path) -> Result<Decoder<BufReader<File>>, InkError> {
+        let content_file_path = ink_root.join(DATA_EXT).join(hex::encode(self.hash));
+        Ok(Decoder::new(BufReader::new(File::open(content_file_path)?)))
     }
 }
 
