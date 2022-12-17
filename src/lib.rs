@@ -89,7 +89,7 @@ pub fn go(to: Commit) -> Result<(), InkError> {
     let from = cursor::get(&root_dir)?;
 
     // perform check to see if pwd is dirty
-    if !(dbg!(create_commit_from_wd(&root_dir)?.diff(&from).edits)).is_empty() {
+    if !(create_commit_from_wd(&root_dir)?.diff(&from).edits).is_empty() {
         return Err(
             "The working directory is dirty, please commit all changes before proceeding".into(),
         );
