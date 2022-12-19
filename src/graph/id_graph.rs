@@ -131,6 +131,10 @@ impl IDGraph {
             .map(|(id, _neighbors)| *id)
             .collect::<Vec<InkID>>()
     }
+
+    pub fn keys(&self) -> Vec<&InkID> {
+        self.nodes.keys().collect()
+    }
 }
 
 #[cfg(test)]

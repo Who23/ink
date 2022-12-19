@@ -1,3 +1,4 @@
+use ink::commit::commit_hash_from_prefix;
 use ink::graph::CommitGraph;
 use ink::InkError;
 use std::convert::TryInto;
@@ -25,8 +26,11 @@ fn debugging_cli(args: Vec<String>) -> Result<(), Box<dyn error::Error>> {
             }
 
             let root_dir = root_dir()?.ok_or("no root")?;
-            let hash = hex::decode(&args[2])?.try_into().unwrap();
-            let commit = ink::commit::Commit::from(&hash, &root_dir)?;
+            let hash = hex::decode(&args[2])?;
+            let commit = ink::commit::Commit::from(
+                &commit_hash_from_prefix(&root_dir, &hash).unwrap(),
+                &root_dir,
+            )?;
             ink::go(commit)?;
         }
         "debug" => {

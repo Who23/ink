@@ -39,4 +39,8 @@ impl CommitGraph {
         fs::write(&self.graph_path, bincode::serialize(&self.graph)?)?;
         Ok(())
     }
+
+    pub fn commit_hashes(&self) -> Vec<&[u8; 32]> {
+        self.graph.keys()
+    }
 }

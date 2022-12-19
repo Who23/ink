@@ -4,6 +4,7 @@ use std::path::Path;
 use std::time::SystemTime;
 
 use crate::filedata::FileData;
+use crate::graph::CommitGraph;
 use crate::utils;
 use crate::{InkError, COMMIT_EXT};
 
@@ -52,6 +53,30 @@ impl CommitRepr {
             time: self.time,
         }
     }
+}
+
+pub fn commit_hash_from_prefix(ink_root: &Path, prefix: &[u8]) -> Result<[u8; 32], InkError> {
+    if prefix.len() > 32 {
+        return Err("invalid commit hash prefix: too long".into());
+    }
+
+    let graph = CommitGraph::get(&ink_root)?;
+    let all_hashes: Vec<&[u8; 32]> = graph.commit_hashes();
+
+    let candidates: Vec<&&[u8; 32]> = all_hashes
+        .iter()
+        .filter(|h| (**h).starts_with(prefix))
+        .collect();
+
+    if candidates.is_empty() {
+        return Err("No commits in the graph match the given prefix".into());
+    }
+
+    if candidates.len() > 1 {
+        return Err("Too many possible commits with the given prefix".into());
+    }
+
+    Ok((*candidates[0]).clone())
 }
 
 impl Commit {
